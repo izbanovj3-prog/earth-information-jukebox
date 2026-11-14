@@ -1,6 +1,15 @@
 import { forwardRef, useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import type { Frame, Legend } from '../types';
+import { formatLat } from '../a11y/narration';
+import { BANDS, bandLatitudes } from '../sonify/mapping';
 import styles from './Screen.module.css';
+
+/** "30–90°N", "30°S–30°N" */
+function latRange([south, north]: [number, number]): string {
+  if (south >= 0) return `${Math.round(south)}–${formatLat(north)}`;
+  if (north <= 0) return `${Math.round(-north)}–${formatLat(south)}`;
+  return `${formatLat(south)}–${formatLat(north)}`;
+}
 
 interface Props {
   frame: Frame | undefined;
@@ -20,7 +29,8 @@ interface Props {
   cursor: { x: number; y: number };
   cursorLabel: string;
   descriptionId: string;
-  onProbe: (x: number, y: number) => void;
+  /** gesture = pointerdown (may start audio); hover moves pass false. */
+  onProbe: (x: number, y: number, gesture: boolean) => void;
   onMapFocus: () => void;
 }
 
@@ -58,12 +68,12 @@ export const Screen = forwardRef<HTMLDivElement, Props>(function Screen(p, mapRe
     return { x, y };
   };
 
-  const probe = (e: PointerEvent<HTMLDivElement>, force = false) => {
+  const probe = (e: PointerEvent<HTMLDivElement>, gesture = false) => {
     const now = performance.now();
-    if (!force && now - lastProbe.current < 90) return;
+    if (!gesture && now - lastProbe.current < 90) return;
     lastProbe.current = now;
     const { x, y } = toPixel(e);
-    p.onProbe(x, y);
+    p.onProbe(x, y, gesture);
   };
 
   const w = p.frame?.width ?? 720;
@@ -92,9 +102,9 @@ export const Screen = forwardRef<HTMLDivElement, Props>(function Screen(p, mapRe
         <canvas ref={b} className={styles.layer} data-front={front === 1} aria-hidden="true" />
         <img className={styles.coast} src={p.basemapUrl} width={1440} height={720} alt="" aria-hidden="true" />
         <div className={styles.bands} aria-hidden="true">
-          <span data-label="North · 30–90°N" />
-          <span data-label="Tropics · 30°S–30°N" />
-          <span data-label="South · 30–90°S" />
+          {BANDS.map((b, i) => (
+            <span key={b.name} data-label={`${b.name} · ${latRange(bandLatitudes(i))}`} />
+          ))}
         </div>
         <div className={styles.compass} aria-hidden="true">
           <span>W 180°</span>
@@ -124,15 +134,15 @@ export const Screen = forwardRef<HTMLDivElement, Props>(function Screen(p, mapRe
           }}
         />
 
-        {p.status === 'loading' && !p.frame && (
+        {p.status === 'loading' && (
           <div className={styles.overlay} role="status">
             <span className={styles.valve} aria-hidden="true" />
-            Tuning in… loading frame {Math.min(p.loaded + 1, p.total)} of {p.total}
+            Tuning in… loading {p.dateLabel}
           </div>
         )}
         {p.status === 'error' && (
           <div className={styles.overlay} role="alert">
-            <p>Could not load any frames for this record.</p>
+            <p>The frame for {p.dateLabel} could not be loaded, neither live from NASA GIBS nor from the bundled copy.</p>
             {p.error && <p className={styles.small}>{p.error}</p>}
             <button type="button" className={styles.retry} onClick={p.onRetry}>
               Try Again

@@ -66,3 +66,13 @@ export function xToLon(frame: Pick<Frame, 'width'>, x: number): number {
 export function yToLat(frame: Pick<Frame, 'height'>, y: number): number {
   return 90 - ((y + 0.5) / frame.height) * 180;
 }
+
+/** Inverse of xToLon, clamped to the frame. */
+export function lonToX(frame: Pick<Frame, 'width'>, lon: number): number {
+  return Math.min(frame.width - 1, Math.max(0, Math.round(((lon + 180) / 360) * frame.width - 0.5)));
+}
+
+/** Inverse of yToLat, clamped to the frame. */
+export function latToY(frame: Pick<Frame, 'height'>, lat: number): number {
+  return Math.min(frame.height - 1, Math.max(0, Math.round(((90 - lat) / 180) * frame.height - 0.5)));
+}

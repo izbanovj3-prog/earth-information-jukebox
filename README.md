@@ -8,7 +8,7 @@ We built it for the 2026 challenge [The Earth Information Jukebox](https://www.s
 
 ## Run it
 
-You need Node.js 22 or newer.
+You need Node.js 22.18 or newer (the frame script imports TypeScript files directly, which Node supports from 22.18).
 
 ```bash
 npm install
@@ -19,6 +19,13 @@ npm run dev
 ```
 
 Open the URL Vite prints. The app needs no API keys. It requests images from NASA GIBS and falls back to bundled copies of the same images if GIBS is unreachable.
+
+Two optional settings go in a `.env` file (copy `.env.example`):
+
+| Variable | Effect |
+|---|---|
+| `VITE_GIBS_WMS_URL` | Use another GIBS WMS endpoint (https only). `npm run frames` uses it too. |
+| `VITE_OFFLINE_ONLY` | `true` never contacts GIBS and plays the bundled frames, with an "Offline mode" banner. |
 
 ## Test it
 
@@ -34,13 +41,19 @@ npm run typecheck
 npm test
 ```
 
+The first time, install the browser that the end-to-end tests use:
+
+```bash
+npx playwright install chromium
+```
+
 ```bash
 npm run e2e
 ```
 
-`npm test` runs 74 Vitest unit tests (colormap parsing, value recovery, sampling, note mapping, the scheduler on a fake AudioContext, narration text, keyboard map, demo tour). `npm run e2e` builds the app and runs 13 Playwright tests in Chromium, with axe accessibility scans on every record and dialog. The e2e suite serves GIBS requests from the bundled frames, so it runs offline.
+`npm test` runs the Vitest unit tests (colormap parsing, value recovery, sampling, note mapping, the scheduler on a fake AudioContext, narration text, keyboard map, demo tour). `npm run e2e` builds the app and runs the Playwright tests in Chromium, with axe accessibility scans on every record, the dialogs, playback, explore mode, the offline fallback and the error state. The e2e suite serves GIBS requests from the bundled frames and ignores your local `.env`, so it runs offline.
 
-`npm run frames` downloads and re-verifies the bundled frames (needs network access to `gibs.earthdata.nasa.gov`).
+`npm run frames` downloads and re-verifies the bundled frames (needs network access to `gibs.earthdata.nasa.gov`). It only rewrites `public/frames/` when every frame and colormap passes.
 
 ## The five records
 
@@ -52,7 +65,7 @@ npm run e2e
 | A4 | Green Pulse | MODIS Terra vegetation index (NDVI), monthly | January to December 2024 |
 | A5 | Hazy Skies | MERRA-2 aerosol optical thickness, monthly | January to December 2024 |
 
-We picked each layer from the GIBS capabilities document and then requested every frame for real: HTTP 200, a PNG of 720 x 360 pixels, `Access-Control-Allow-Origin: *`, and more than 1% data pixels. 60 of 60 frames passed. Every pixel colour in those frames appears as an entry in the layer's GIBS colormap, so the app recovers the value behind a colour without guessing.
+We picked each layer from the GIBS capabilities document and then requested every frame for real: HTTP 200, a PNG of 720 x 360 pixels, `Access-Control-Allow-Origin: *`, and more than 1% data pixels. All 58 frames in the table passed, plus the coastline overlay. Every pixel colour in those frames appears as an entry in the layer's GIBS colormap, so the app recovers the value behind a colour without guessing.
 
 ## How you hear the data
 
@@ -69,7 +82,7 @@ The engine schedules notes 100 ms ahead on the AudioContext clock and moves the 
 
 ## Accessibility
 
-- Keyboard: Space plays or pauses, arrow keys explore (Shift jumps 10x), `[` and `]` switch records, `,` and `.` step through time, D reads a full description of the frame, M mutes, `?` opens help. Shortcuts never take keys away from a focused button, slider or menu.
+- Keyboard: Space plays or pauses, E jumps to the map, arrow keys explore (2° per press, Shift jumps 20°), `[` and `]` switch records, `,` and `.` step through time, D reads a full description of the frame, M mutes, `?` opens help, Escape closes it. Shortcuts never take keys away from a focused button, slider or menu; menus keep their letter keys for type-ahead.
 - Screen readers: a polite live region tells you what you hear every few seconds ("40°W. North: warm, rising. Tropics: very warm, steady. South: no data."). You can switch narration to "Changes only" or off.
 - Each frame has a text description with the area-weighted average, the change since the first frame, the highest and lowest points with coordinates, and each band.
 - No colour carries meaning alone. The UI keeps 4.5:1 text contrast, respects `prefers-reduced-motion`, and works from 360 px wide.
@@ -98,7 +111,9 @@ The three sides talk through one contract in `src/types.ts`: a `Frame` (RGBA pix
 - We dropped the 2003 and 2005 sea ice frames: their data coverage differs a lot from later years, which points to a change in the product.
 - The GIBS colour scales are rainbow-like. We keep them because the legend has to describe the source image.
 - The map uses an equirectangular projection, which stretches the poles. The text statistics weight each pixel by area to correct for this.
-- Browsers only start audio after you press a key or click, so the app never plays sound on load.
+- Browsers only start audio after you press a key or click, so the app never plays sound on load. Hovering the map with the mouse never starts sound on its own.
+- The app keeps up to 30 decoded frames (about 31 MB) in memory per session, because GIBS sends `Cache-Control: no-store`.
+- Nobody has tested it with a real screen reader yet; the narration and ARIA follow the specs and pass axe.
 
 ## Credits and license
 

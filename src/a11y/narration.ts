@@ -92,6 +92,21 @@ export function describeFrame(
   return lines.join(' ');
 }
 
+/** "62°N 40°W: −5.2 °C, cold" for the explore cursor. */
+export function describeProbe(track: Track, lat: number, lon: number, value: number | null): string {
+  return `${formatLat(lat)} ${formatLon(lon)}: ${formatValue(track, value)}${value === null ? '' : `, ${levelWord(track, value)}`}`;
+}
+
+/** Spoken when the time-lapse reaches a new frame. */
+export function describeFrameChange(track: Track, dateLabel: string, stats: FrameStats | null): string {
+  return `${dateLabel}. Average ${stats ? formatValue(track, stats.mean) : 'unknown'}.`;
+}
+
+/** Spoken when playback starts. */
+export function describePlaying(track: Track, dateLabel: string): string {
+  return `Playing ${track.title}, ${dateLabel}. Scanning west to east.`;
+}
+
 /** Throttle for aria-live announcements: at most one per interval, urgent ones always pass. */
 export class Throttle {
   private last = -Infinity;

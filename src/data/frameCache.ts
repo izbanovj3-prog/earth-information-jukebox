@@ -32,10 +32,17 @@ export class LruCache<V> {
   }
 }
 
-/** Frames to load first: the focus, then the next `ahead` frames (wrapping), for time-lapse. */
+/**
+ * Frames to load first: the focus, then the next `ahead` frames (wrapping) for the time-lapse,
+ * then frame 0, which is the baseline for the change drone and the "compared with" text.
+ */
 export function prefetchOrder(count: number, focus: number, ahead = 2): number[] {
   if (count <= 0) return [];
   const out: number[] = [];
-  for (let k = 0; k <= Math.min(ahead, count - 1); k++) out.push((((focus + k) % count) + count) % count);
+  const add = (i: number) => {
+    if (!out.includes(i)) out.push(i);
+  };
+  for (let k = 0; k <= Math.min(ahead, count - 1); k++) add((((focus + k) % count) + count) % count);
+  add(0);
   return out;
 }

@@ -1,5 +1,5 @@
 // Pure sampling of frames: columns, probes, whole-frame statistics.
-import type { Band, ColumnSample, Frame } from '../types';
+import type { Band, ColumnSample, DroneMetric, Frame } from '../types';
 import { regionMean, regionStats, valueGrid, xToLon, yToLat } from '../data/values';
 
 /** Minimum fraction of valid pixels for a band to count as having data. */
@@ -61,7 +61,7 @@ export interface FrameStats {
 const statsCache = new WeakMap<Frame, FrameStats>();
 
 /** Whole-frame statistics with cos(latitude) area weighting. Cached per frame. */
-export function frameStats(frame: Frame, bandCount = 3): FrameStats {
+export function frameStats(frame: Frame, bandCount = 3 /* = BAND_COUNT; literal avoids an import cycle */): FrameStats {
   const hit = statsCache.get(frame);
   if (hit && hit.bandMeans.length === bandCount) return hit;
   const g = valueGrid(frame);
@@ -104,8 +104,29 @@ export function frameStats(frame: Frame, bandCount = 3): FrameStats {
 }
 
 /** The global metric followed by the change drone. */
-export function droneMetricOf(stats: FrameStats, metric: 'mean' | 'coverage' | 'northCoverage'): number | null {
+export function droneMetricOf(stats: FrameStats, metric: DroneMetric): number | null {
   if (metric === 'mean') return stats.mean;
   if (metric === 'coverage') return stats.coverage;
   return stats.bandCoverage[0] ?? null;
+}
+
+/** Linear blend of two column samples (null-safe: if either side is null, take the other at k>=0.5). */
+export function blendSamples(a: ColumnSample, b: ColumnSample, k: number): ColumnSample {
+  const mix = (x: number | null | undefined, y: number | null | undefined): number | null => {
+    const xa = x ?? null;
+    const yb = y ?? null;
+    if (xa === null) return k >= 0.5 ? yb : null;
+    if (yb === null) return k >= 0.5 ? null : xa;
+    return xa + (yb - xa) * k;
+  };
+  return {
+    ...b,
+    bands: b.bands.map((band, i) => ({
+      lat: band.lat,
+      value: mix(a.bands[i]?.value, band.value),
+      min: mix(a.bands[i]?.min, band.min),
+      max: mix(a.bands[i]?.max, band.max),
+    })),
+    meanValue: mix(a.meanValue, b.meanValue),
+  };
 }

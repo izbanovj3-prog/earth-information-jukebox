@@ -11,11 +11,17 @@ for (const t of Object.values(manifest.tracks)) for (const f of t.frames) byLaye
 
 export type GibsMode = 'mock' | 'blocked';
 
+/** GIBS requests seen by the mock, for request-count assertions. */
+export const gibsLog = new WeakMap<Page, string[]>();
+
 /** Serve GIBS WMS from the bundled copies (deterministic, no network) or block it entirely. */
 export async function routeGibs(page: Page, mode: GibsMode) {
+  const log: string[] = [];
+  gibsLog.set(page, log);
   await page.route('https://gibs.earthdata.nasa.gov/**', async (route) => {
-    if (mode === 'blocked') return route.abort('internetdisconnected');
     const u = new URL(route.request().url());
+    log.push(`${u.searchParams.get('LAYERS')}|${u.searchParams.get('TIME')}`);
+    if (mode === 'blocked') return route.abort('internetdisconnected');
     const file = byLayerDate.get(`${u.searchParams.get('LAYERS')}|${u.searchParams.get('TIME')}`);
     if (!file) return route.fulfill({ status: 404, body: 'not found' });
     return route.fulfill({
@@ -66,8 +72,10 @@ export async function expectNoSeriousA11yViolations(page: Page, label: string) {
   ).toEqual([]);
 }
 
+/** Wait until the frame in focus is on screen (works whether the player is playing or paused). */
 export async function waitForFrame(page: Page) {
-  await expect(page.getByRole('button', { name: 'Play' })).toBeEnabled({ timeout: 20_000 });
+  await expect(page.locator('button[aria-keyshortcuts="Space"]')).toBeEnabled({ timeout: 20_000 });
+  await expect(page.locator('#frame-desc')).not.toContainText(/^Loading/, { timeout: 20_000 });
 }
 
 export const test = base.extend<{ gibs: GibsMode }>({

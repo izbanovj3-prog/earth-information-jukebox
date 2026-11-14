@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import type { Preset } from '../sonify/mapping';
+import { PRESETS, type Preset } from '../sonify/mapping';
 import { KEYS, SCALE_LABELS } from '../sonify/scales';
 import type { ScaleName } from '../types';
 import styles from './Transport.module.css';
@@ -121,8 +121,11 @@ export function Transport(p: Props) {
           <div className={styles.field}>
             <label htmlFor={`${id}-preset`}>Mood</label>
             <select id={`${id}-preset`} value={p.preset} onChange={(e) => p.onPreset(e.target.value as Preset['id'])}>
-              <option value="calm">Calm</option>
-              <option value="dramatic">Dramatic</option>
+              {Object.values(PRESETS).map((pr) => (
+                <option key={pr.id} value={pr.id}>
+                  {pr.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className={styles.field}>

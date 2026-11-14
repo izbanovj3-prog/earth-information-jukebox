@@ -58,6 +58,8 @@ export interface ColumnSample {
 }
 
 export type ScaleName = 'pentatonic' | 'minor' | 'chromatic';
+/** Global metric followed by the change drone: area-weighted mean, coverage (mean x valid area), or Arctic-band coverage. */
+export type DroneMetric = 'mean' | 'coverage' | 'northCoverage';
 export type Timbre = 'glass' | 'reed' | 'pluck' | 'bell' | 'noise' | 'probe';
 
 export interface MappingConfig {

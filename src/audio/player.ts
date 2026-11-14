@@ -1,7 +1,8 @@
 // Framework-agnostic glue: frames + mapping -> scheduled notes, with audio-clock visual sync.
 import { droneParams, mapProbe, mapToNotes } from '../sonify/mapping';
-import { droneMetricOf, frameStats, probe, sampleColumn } from '../sonify/sample';
-import type { ColumnSample, Frame, MappingConfig, NoteEvent } from '../types';
+import { BAND_COUNT } from '../sonify/mapping';
+import { blendSamples, droneMetricOf, frameStats, probe, sampleColumn } from '../sonify/sample';
+import type { ColumnSample, DroneMetric, Frame, MappingConfig, NoteEvent } from '../types';
 import { xToLon, yToLat } from '../data/values';
 import type { AudioEngine } from './engine';
 import { LookaheadScheduler, type Timers } from './scheduler';
@@ -24,7 +25,7 @@ export interface PlayerOptions {
 }
 
 export interface DroneConfig {
-  metric: 'mean' | 'coverage' | 'northCoverage';
+  metric: DroneMetric;
   changeScale: number;
 }
 
@@ -53,7 +54,7 @@ export class JukeboxPlayer {
     opts: PlayerOptions = {},
   ) {
     this.steps = opts.steps ?? 48;
-    this.bandCount = opts.bandCount ?? 3;
+    this.bandCount = opts.bandCount ?? BAND_COUNT;
     this.crossfadeSteps = opts.crossfadeSteps ?? 8;
     this.scheduler = new LookaheadScheduler({
       clock: () => this.engine.now(),
@@ -120,8 +121,9 @@ export class JukeboxPlayer {
   /** Start scanning. Must be called from a user gesture (starts the AudioContext). */
   async play(): Promise<void> {
     await this.engine.start();
-    this.updateDrone();
+    if (this.scheduler.running) return; // already playing: keep the current timing
     this.scheduler.start();
+    this.updateDrone();
   }
 
   async pause(): Promise<void> {
@@ -134,16 +136,18 @@ export class JukeboxPlayer {
   holdScan(): void {
     this.scheduler.stop();
     this.visualQueue = [];
+    this.engine.setDrone(null); // the drone belongs to the scan, not to single-point exploring
   }
 
   /**
    * Explore: sonify the neighbourhood under (x, y) of the current frame. Starts audio if needed
    * (call from a key/pointer handler). Returns what was sampled, for narration.
    */
-  async probeAt(x: number, y: number): Promise<{ value: number | null; lat: number; lon: number } | null> {
+  async probeAt(x: number, y: number, gesture = true): Promise<{ value: number | null; lat: number; lon: number } | null> {
     const frame = this.frames[this.frameIndex];
     if (!frame || !this.mapping) return null;
-    await this.engine.start();
+    // Audio may only be created/resumed inside a user gesture; mouse hover is not one.
+    if (gesture) await this.engine.start();
     const value = probe(frame, x, y);
     const lon = xToLon(frame, x);
     const lat = yToLat(frame, y);
@@ -166,7 +170,7 @@ export class JukeboxPlayer {
     let sample = sampleColumn(frame, x, this.bandCount, halfWidth);
     if (this.prevFrame && this.prevFrame !== frame && this.column < this.crossfadeSteps) {
       const k = (this.column + 1) / (this.crossfadeSteps + 1);
-      sample = blend(sampleColumn(this.prevFrame, x, this.bandCount, halfWidth), sample, k);
+      sample = blendSamples(sampleColumn(this.prevFrame, x, this.bandCount, halfWidth), sample, k);
     }
     const notes = mapToNotes(sample, this.mapping);
     this.engine.schedule(notes, time);
@@ -187,6 +191,8 @@ export class JukeboxPlayer {
           this.updateDrone();
           this.frameListeners.forEach((fn) => fn(this.frameIndex));
         }
+        // Next frame not loaded yet: repeat this one without re-running the old crossfade.
+        else this.prevFrame = undefined;
       } else {
         this.prevFrame = undefined;
       }
@@ -200,7 +206,7 @@ export class JukeboxPlayer {
   private updateDrone(): void {
     const frame = this.frames[this.frameIndex];
     const base = this.frames[0];
-    if (!frame || !base || !this.engine.started) return;
+    if (!frame || !base || !this.engine.started || !this.scheduler.running) return;
     const p = droneParams(
       droneMetricOf(frameStats(frame, this.bandCount), this.drone.metric),
       droneMetricOf(frameStats(base, this.bandCount), this.drone.metric),
@@ -208,25 +214,4 @@ export class JukeboxPlayer {
     );
     this.engine.setDrone(p);
   }
-}
-
-/** Linear blend of two column samples (null-safe: if either side is null, take the other at k>=0.5). */
-export function blend(a: ColumnSample, b: ColumnSample, k: number): ColumnSample {
-  const mix = (x: number | null | undefined, y: number | null | undefined): number | null => {
-    const xa = x ?? null;
-    const yb = y ?? null;
-    if (xa === null) return k >= 0.5 ? yb : null;
-    if (yb === null) return k >= 0.5 ? null : xa;
-    return xa + (yb - xa) * k;
-  };
-  return {
-    ...b,
-    bands: b.bands.map((band, i) => ({
-      lat: band.lat,
-      value: mix(a.bands[i]?.value, band.value),
-      min: mix(a.bands[i]?.min, band.min),
-      max: mix(a.bands[i]?.max, band.max),
-    })),
-    meanValue: mix(a.meanValue, b.meanValue),
-  };
 }

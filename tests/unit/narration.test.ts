@@ -1,6 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { getTrack } from '../../src/data/catalog';
-import { describeColumn, describeFrame, formatLat, formatLon, levelWord, Throttle, trendWord } from '../../src/a11y/narration';
+import {
+  describeColumn,
+  describeFrame,
+  describeFrameChange,
+  describePlaying,
+  describeProbe,
+  formatLat,
+  formatLon,
+  levelWord,
+  Throttle,
+  trendWord,
+} from '../../src/a11y/narration';
+import { withLegend } from '../../src/data/catalog';
+import { luminanceLegend } from '../../src/data/colormap';
 import { frameStats } from '../../src/sonify/sample';
 import type { ColumnSample } from '../../src/types';
 import { synthFrame } from './helpers';
@@ -61,6 +74,22 @@ describe('describeFrame', () => {
   });
 });
 
+describe('short announcements', () => {
+  it('describe the cursor, frame changes and playback', () => {
+    expect(describeProbe(temp, 62, -40, 268.15)).toBe('62°N 40°W: -5.0\u00a0°C, moderate');
+    expect(describeProbe(temp, 0, 0, null)).toBe('0° 0°: no data');
+    expect(describePlaying(temp, 'July 1980')).toBe('Playing Fever Pitch, July 1980. Scanning west to east.');
+    expect(describeFrameChange(temp, 'July 1984', null)).toBe('July 1984. Average unknown.');
+  });
+  it('switch to brightness words when the legend is not calibrated', () => {
+    const t = withLegend(temp, luminanceLegend());
+    expect(t.range).toEqual([0, 1]);
+    expect(levelWord(t, 0.9)).toBe('very bright');
+    expect(describeProbe(t, 10, 10, 0.5)).toContain('50\u00a0% brightness');
+    expect(withLegend(temp, null)).toBe(temp);
+  });
+});
+
 describe('Throttle', () => {
   it('allows one message per interval unless urgent', () => {
     let t = 0;
@@ -68,7 +97,9 @@ describe('Throttle', () => {
     expect(th.allow()).toBe(true);
     t = 500;
     expect(th.allow()).toBe(false);
-    expect(th.allow(true)).toBe(true);
+    expect(th.allow(true)).toBe(true); // urgent message at 500 restarts the window
+    t = 1200;
+    expect(th.allow()).toBe(false); // 700 ms after the urgent one: still held back
     t = 1600;
     expect(th.allow()).toBe(true);
   });

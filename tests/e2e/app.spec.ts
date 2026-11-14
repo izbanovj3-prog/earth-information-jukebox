@@ -1,5 +1,5 @@
 import { TRACKS } from '../../src/data/catalog';
-import { audioStats, expect, expectNoSeriousA11yViolations, test, waitForFrame } from './fixtures';
+import { audioStats, expect, expectNoSeriousA11yViolations, gibsLog, test, waitForFrame } from './fixtures';
 
 test.describe('Earth Information Jukebox', () => {
   test('loads with disclaimer, records and a live (mocked) GIBS frame; no audio before a gesture', async ({ page }) => {
@@ -25,6 +25,7 @@ test.describe('Earth Information Jukebox', () => {
     // the scan advances on the audio clock and the "You are hearing" text follows it
     await expect(page.locator('h3:text("You Are Hearing") + p')).toContainText(/°[WE]?\. North:/, { timeout: 5000 });
     await expect(page.getByTestId('narrator')).toContainText('Playing Fever Pitch');
+    await expectNoSeriousA11yViolations(page, 'while playing');
     await page.getByRole('button', { name: 'Pause' }).click();
     await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
     await expect.poll(async () => (await audioStats(page)).state).toBe('suspended');
@@ -51,6 +52,10 @@ test.describe('Earth Information Jukebox', () => {
     await page.keyboard.press('e');
     await expect(page.getByRole('application')).toBeFocused();
     await page.keyboard.press('ArrowLeft');
+    const readout = page.locator('[class*=readout]');
+    await expect(readout).toContainText('2°W'); // one step = 2°
+    await page.keyboard.press('Shift+ArrowLeft');
+    await expect(readout).toContainText('22°W'); // Shift = 10 steps = 20°
     await page.keyboard.press('Shift+ArrowUp');
     await expect(page.getByTestId('narrator')).toContainText(/\d+°[NS]? \d+°[WE]?: -?\d/);
     await expect(page.getByRole('radio', { name: 'Explore' })).toBeChecked();
@@ -86,6 +91,85 @@ test.describe('Earth Information Jukebox', () => {
     await waitForFrame(page);
     await expect(page.locator('#now-h')).toHaveText('Green Pulse');
     await expect(page.locator('#frame-desc')).toContainText('July 2024');
+    // the first frame (baseline) is loaded too, so the change is described
+    await expect(page.locator('#frame-desc')).toContainText(/(Up|Down) [\d.]+\u00a0NDVI compared with January 2024/);
+  });
+
+  test('an unknown record or date in the URL is reported, not silently replaced', async ({ page }) => {
+    await page.goto('/?record=sea-ice&date=2014-10-01');
+    await waitForFrame(page);
+    await expect(page.getByRole('status').filter({ hasText: 'has no frame for “2014-10-01”' })).toContainText('showing 15 September 2014');
+    await expect(page).toHaveURL(/date=2014-09-15/);
+    await page.goto('/?record=nope');
+    await waitForFrame(page);
+    await expect(page.getByRole('status').filter({ hasText: 'There is no record called “nope”' })).toBeVisible();
+  });
+
+  test('loads lazily (focus, two ahead, baseline) and reuses frames across record switches', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.waitForTimeout(500);
+    const log = gibsLog.get(page)!;
+    expect(new Set(log).size).toBe(3);
+    const before = log.filter((x) => x.startsWith('MERRA2_2m')).length;
+    await page.keyboard.press(']');
+    await waitForFrame(page);
+    await page.keyboard.press('[');
+    await waitForFrame(page);
+    await page.waitForTimeout(300);
+    expect(log.filter((x) => x.startsWith('MERRA2_2m')).length).toBe(before);
+  });
+
+  test('time-lapse advances to the next date after a sweep', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.getByRole('slider', { name: /Tempo/ }).fill('10');
+    await page.getByRole('button', { name: 'Play' }).click();
+    await expect(page).toHaveURL(/date=1984-07-01/, { timeout: 12_000 });
+    await expect(page.getByTestId('narrator')).toContainText(/July 1984\. Average/);
+  });
+
+  test('pauses all audio when the tab is hidden, also in explore mode', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.getByRole('button', { name: 'Play' }).click();
+    await page.keyboard.press('e');
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(async () => (await audioStats(page)).state).toBe('running');
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'hidden', { value: true, configurable: true });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect.poll(async () => (await audioStats(page)).state).toBe('suspended');
+    await expect(page.getByTestId('narrator')).toContainText('Paused because the tab was hidden.');
+  });
+
+  test('narration Off keeps the live region quiet; menus keep their letter keys', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.getByRole('combobox', { name: 'Spoken narration' }).selectOption('off');
+    const key = page.getByRole('combobox', { name: 'Key' });
+    await key.focus();
+    await page.keyboard.press('d');
+    await expect(key).toHaveValue('50'); // D, not the "describe" shortcut
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press(' ');
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    await page.waitForTimeout(1500);
+    await expect(page.getByTestId('narrator')).not.toContainText('Playing');
+  });
+
+  test('shows an error with Try Again when a frame cannot be loaded, and recovers', async ({ page }) => {
+    await page.route('**/frames/air-temperature/**', (r) => r.fulfill({ status: 404, body: 'gone' }));
+    await page.unroute('https://gibs.earthdata.nasa.gov/**');
+    await page.route('https://gibs.earthdata.nasa.gov/**', (r) => r.abort('internetdisconnected'));
+    await page.goto('/');
+    await expect(page.getByRole('alert')).toContainText('could not be loaded');
+    await expectNoSeriousA11yViolations(page, 'frame error');
+    await page.unroute('**/frames/air-temperature/**');
+    await page.getByRole('button', { name: 'Try Again' }).click();
+    await waitForFrame(page);
+    await expect(page.getByText('Bundled copy · NASA GIBS')).toBeVisible();
   });
 
   test('all records load and are axe-clean (serious/critical)', async ({ page }) => {
@@ -131,6 +215,32 @@ test.describe('demo tour', () => {
   });
 });
 
+test.describe('demo tour script', () => {
+  test('visits each scripted step on time and ends', async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.clock.install();
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.getByRole('button', { name: /Demo Tour/ }).click();
+    // Freeze page time so only fastForward() moves the tour (assertions take real time).
+    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50);
+    await page.clock.fastForward(14_500);
+    await expect(page).toHaveURL(/record=air-temperature&date=2024-07-01/);
+    await page.clock.fastForward(14_000); // 28.5 s
+    await expect(page.locator('#now-h')).toHaveText('Thin Ice');
+    await expect(page).toHaveURL(/date=2012-09-15/);
+    await waitForFrame(page);
+    await page.clock.fastForward(12_000); // 40.5 s
+    await expect(page.getByRole('radio', { name: 'Explore' })).toBeChecked();
+    await expect(page.locator('[class*=readout]')).toContainText('82°N 150°W');
+    await page.clock.fastForward(12_000); // 52.5 s
+    await expect(page.locator('#now-h')).toHaveText('Green Pulse');
+    await page.clock.fastForward(38_000); // 90.5 s
+    await expect(page.getByRole('button', { name: /Demo Tour/ })).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByTestId('narrator')).toContainText('Demo tour finished.');
+  });
+});
+
 test.describe('offline fallback', () => {
   test.use({ gibs: 'blocked' });
   test('uses bundled frames with a visible banner when GIBS is unreachable', async ({ page }) => {
@@ -141,6 +251,11 @@ test.describe('offline fallback', () => {
     await page.getByRole('button', { name: 'Play' }).click();
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
     await expectNoSeriousA11yViolations(page, 'offline');
+    // the banner stays on the next record, after the session stopped asking GIBS
+    await page.keyboard.press(']');
+    await waitForFrame(page);
+    await expect(page.getByRole('status').filter({ hasText: 'Live NASA GIBS imagery is unavailable' })).toBeVisible();
+    await expectNoSeriousA11yViolations(page, 'offline, second record');
   });
 });
 

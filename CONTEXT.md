@@ -96,6 +96,8 @@ npm run frames     # re-download bundled GIBS frames (needs network)
 - **Lazy frames + session cache** (web-performance-optimization): load the frame in focus, then 2 ahead for the time-lapse; decoded frames live in an in-memory LRU (30 frames, ~31 MB) because GIBS WMS sends `Cache-Control: no-store`. Startup GIBS traffic fell from 12 requests / 994 kB to 3 / 248 kB; switching records away and back fell from 22 requests to 3. LCP 276 ms, CLS 0.027 (headless Chromium, local preview). No code splitting (single screen; React is most of the 69 kB gzip bundle).
 - **Demo tour** is pure data (`src/ui/tour.ts`); it turns the time-lapse off where the narration names a date, and any shortcut hands control back.
 - **Accepted deviation**: the one-shot CRT power-on animates `clip-path`/`filter` (disabled under reduced motion).
+- **Review council** (6 reviewer agents: correctness, security, architecture, interface, test evidence, policy) ran on the full change. Fixed: baseline frame 0 was never loaded on deep links/tour jumps (silent drone, missing comparison); timeouts now cover body reads; streaming size caps; PNG header dimensions checked before decoding; linear-time colormap parsing; https-only WMS override; build-time CSP; manifest validation; offline banner persists across records and has its own text for `VITE_OFFLINE_ONLY`; per-frame load errors with Try Again; brightness fallback uses a 0–1 range with its own words; failed legends are not cached; explore mode silences the drone and tab-hidden pauses all audio; hover never starts audio; pause ends the tour; play() while playing keeps scheduler timing; no stale crossfade while waiting for a frame; menus keep their letter keys; invalid URL params are reported (nearest date); single sources of truth for bands, WMS contract, drone metric; scripts share a timeout+size-capped HTTP helper, verify colormaps with the app parser, and never overwrite the manifest on a partial failure; cross-platform proxy handling; `engines: node >=22.18`.
+- **Not done (logged)**: no code splitting (single screen); no service worker; no real screen-reader session (NVDA/VoiceOver) in this sandbox.
 - **Dev-only audit**: 7 moderate advisories in the typescript-eslint toolchain (lint only, not shipped).
 
 ## Acceptance criteria
@@ -110,5 +112,6 @@ npm run frames     # re-download bundled GIBS frames (needs network)
 
 ## Open questions
 
-- Which of the candidate themes have GIBS layers with usable colormaps (answered by the spike).
+- ~~Which candidate themes have GIBS layers with usable colormaps~~ answered by the spike (5 tracks).
+- The Stitch designs ("Earth Jukebox Interface") could not be fetched: no Stitch connector in this session.
 - Real screen-reader testing (NVDA/VoiceOver) is not possible in this sandbox; only automated checks + ARIA review.

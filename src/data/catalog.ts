@@ -2,6 +2,7 @@
 // (HTTP 200, PNG, non-empty pixels, `Access-Control-Allow-Origin: *`, colormap available).
 // See scripts/spike-gibs.mjs and scripts/fetch-frames.mjs; results in public/frames/manifest.json.
 // Must stay free of non-erasable TS syntax: scripts/fetch-frames.mjs imports it with Node type stripping.
+import type { DroneMetric, Legend } from '../types';
 
 export interface Track {
   id: string;
@@ -32,7 +33,7 @@ export interface Track {
   /** What "no data" means for this layer (rests in the music). */
   noDataMeans: string;
   /** Global metric followed by the change drone: area-weighted mean, or coverage (mean x valid area). */
-  droneMetric: 'mean' | 'coverage' | 'northCoverage';
+  droneMetric: DroneMetric;
   /** Change in the drone metric (legend units) that moves the drone a full fifth. Intentional exaggeration. */
   changeScale: number;
   /** Fraction at the low / high end of `range` where a pixel triggers an accent (0 = off). */
@@ -186,6 +187,24 @@ export function getTrack(id: string): Track {
   const t = TRACKS.find((tr) => tr.id === id);
   if (!t) throw new Error(`Unknown track: ${id}`);
   return t;
+}
+
+/**
+ * The track as the listener should hear it given the loaded legend. With an uncalibrated
+ * (luminance) legend, values are 0..1 brightness, so range, units and words switch accordingly.
+ */
+export function withLegend(track: Track, legend: Legend | null | undefined): Track {
+  if (!legend || legend.calibrated) return track;
+  return {
+    ...track,
+    range: [0, 1],
+    display: { unit: '% brightness', offset: 0, scale: 100, decimals: 0 },
+    lowWord: 'dark',
+    highWord: 'bright',
+    pitchHint: 'Higher pitch = brighter pixel (relative values, not calibrated)',
+    accents: { low: 0, high: 0 },
+    accentMeaning: 'No accents while values are not calibrated.',
+  };
 }
 
 export function formatValue(track: Track, value: number | null): string {

@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AudioEngine } from '../../src/audio/engine';
-import { blend, JukeboxPlayer } from '../../src/audio/player';
+import { JukeboxPlayer } from '../../src/audio/player';
+import { blendSamples as blend } from '../../src/sonify/sample';
 import { LookaheadScheduler } from '../../src/audio/scheduler';
 import type { MappingConfig, NoteEvent } from '../../src/types';
 import { fakeFactory, FakeParam, manualTimers } from './fakeAudio';
@@ -184,6 +185,52 @@ describe('JukeboxPlayer', () => {
     expect(steps[3]!.pan).toBeGreaterThan(0);
     expect(frames[0]).toBe(1);
     expect(steps.some((s) => s.frame === 1)).toBe(true);
+  });
+
+  it('waits on the current frame (no crossfade replay) while the next frame is not loaded', async () => {
+    const { f, t, player } = await setup();
+    player.setFrames([synthFrame(40, 12, () => 5), undefined]);
+    const frames: number[] = [];
+    const steps: number[] = [];
+    player.onFrameChange((i) => frames.push(i));
+    player.onStepScheduled((s) => steps.push(s.frameIndex));
+    await player.play();
+    for (let i = 0; i < 20; i++) {
+      f.ctx.currentTime += 0.1;
+      t.fire();
+    }
+    expect(frames).toEqual([]);
+    expect(steps.length).toBeGreaterThan(8);
+    expect(steps.every((i) => i === 0)).toBe(true);
+  });
+
+  it('play() while playing keeps the scheduler timing (no restart)', async () => {
+    const { f, t, player } = await setup();
+    const times: number[] = [];
+    player.onStepScheduled((s) => times.push(s.time));
+    await player.play();
+    f.ctx.currentTime = 0.3;
+    t.fire();
+    const before = [...times];
+    await player.play();
+    expect(times.slice(0, before.length)).toEqual(before);
+    for (let i = 1; i < times.length; i++) expect(times[i]! - times[i - 1]!).toBeCloseTo(0.1);
+  });
+
+  it('a hover probe (no gesture) never starts audio; explore silences the drone', async () => {
+    const { f, engine, player } = await setup();
+    const r = await player.probeAt(10, 3, false);
+    expect(r?.value).toBe(5);
+    expect(f.created()).toBe(0);
+    const setDrone = vi.spyOn(engine, 'setDrone');
+    await player.play();
+    expect(setDrone).toHaveBeenLastCalledWith(expect.objectContaining({ freq: expect.any(Number) }));
+    player.holdScan();
+    expect(setDrone).toHaveBeenLastCalledWith(null);
+    expect(player.playing).toBe(false);
+    // while exploring, frame changes must not bring the drone back
+    player.seekFrame(1);
+    expect(setDrone).toHaveBeenLastCalledWith(null);
   });
 
   it('drains visual steps in audio-clock order', async () => {

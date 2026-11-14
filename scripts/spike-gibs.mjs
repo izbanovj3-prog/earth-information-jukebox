@@ -1,7 +1,11 @@
 // Data spike: verify candidate GIBS layers with real requests.
-// Usage: node scripts/spike-gibs.mjs  -> prints a table, writes scripts/spike-report.json
+// Usage: node scripts/spike-gibs.mjs  (historical spike; kept as evidence for the layer choice)
+//  -> prints a table, writes scripts/spike-report.json
 import { writeFileSync } from 'node:fs';
 import { PNG } from 'pngjs';
+import { ensureProxyEnv, get } from './lib/http.mjs';
+
+ensureProxyEnv();
 
 const WMS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
 const CMAP = 'https://gibs.earthdata.nasa.gov/colormaps/v1.3/';
@@ -31,25 +35,15 @@ function wmsUrl(layer, time, w = 720, h = 360) {
   return `${WMS}?${p}`;
 }
 
-async function get(url, ms = 30000) {
-  const ac = new AbortController();
-  const t = setTimeout(() => ac.abort(), ms);
-  try {
-    return await fetch(url, { signal: ac.signal, headers: { Origin: 'http://localhost:5173' } });
-  } finally {
-    clearTimeout(t);
-  }
-}
-
 const report = [];
 for (const [theme, layer, time] of candidates) {
   const row = { theme, layer, time };
   try {
     const r = await get(wmsUrl(layer, time));
     row.status = r.status;
-    row.type = r.headers.get('content-type');
-    row.cors = r.headers.get('access-control-allow-origin');
-    const buf = Buffer.from(await r.arrayBuffer());
+    row.type = r.type;
+    row.cors = r.cors;
+    const buf = r.body;
     row.bytes = buf.length;
     if (row.type?.startsWith('image/png')) {
       const png = PNG.sync.read(buf);
@@ -67,10 +61,10 @@ for (const [theme, layer, time] of candidates) {
     } else {
       row.body = buf.toString('utf8').slice(0, 160);
     }
-    const c = await get(CMAP + layer + '.xml');
+    const c = await get(CMAP + layer + '.xml', { maxBytes: 2_000_000 });
     row.colormap = c.status;
     if (c.ok) {
-      const xml = await c.text();
+      const xml = c.body.toString('utf8');
       row.cmEntries = (xml.match(/<ColorMapEntry /g) || []).length;
       row.cmUnits = (xml.match(/units="([^"]*)"/) || [])[1] ?? null;
     }

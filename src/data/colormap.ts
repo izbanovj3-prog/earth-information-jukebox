@@ -23,9 +23,30 @@ function bound(s: string): number {
   const t = s.trim().toUpperCase();
   if (t === '-INF') return -Infinity;
   if (t === '+INF' || t === 'INF') return Infinity;
-  const n = Number(t);
+  const n = t === '' ? NaN : Number(t);
   if (!Number.isFinite(n)) throw new Error(`Bad colormap bound: ${s}`);
   return n;
+}
+
+/** Split XML into <ColorMap ...>body</ColorMap> blocks with indexOf (linear, no backtracking). */
+function colorMapBlocks(xml: string): { head: string; body: string }[] {
+  const out: { head: string; body: string }[] = [];
+  let i = 0;
+  for (;;) {
+    const start = xml.indexOf('<ColorMap', i);
+    if (start < 0) break;
+    const next = xml[start + 9];
+    if (next !== ' ' && next !== '>' && next !== '\n' && next !== '\t' && next !== '\r') {
+      i = start + 9; // e.g. <ColorMaps>
+      continue;
+    }
+    const headEnd = xml.indexOf('>', start);
+    const close = xml.indexOf('</ColorMap>', headEnd);
+    if (headEnd < 0 || close < 0) break;
+    out.push({ head: xml.slice(start + 9, headEnd), body: xml.slice(headEnd + 1, close) });
+    i = close + 11;
+  }
+  return out;
 }
 
 /**
@@ -33,10 +54,14 @@ function bound(s: string): number {
  * midpoint for finite intervals, the finite bound for half-open infinite ones.
  */
 export function parseInterval(s: string): { lo: number; hi: number; value: number } {
-  const m = /^\s*[[(]\s*([^,\])]+?)\s*(?:,\s*([^\])]+?)\s*)?[\])]\s*$/.exec(s);
-  if (!m) throw new Error(`Bad colormap interval: ${s}`);
-  const lo = bound(m[1]!);
-  const hi = m[2] === undefined ? lo : bound(m[2]);
+  // Linear-time parsing (no backtracking regex): bracket, one or two comma-separated bounds, bracket.
+  const t = s.trim();
+  if (t.length < 3 || t.length > 64) throw new Error(`Bad colormap interval: ${s.slice(0, 64)}`);
+  if (!'[('.includes(t[0]!) || !'])'.includes(t[t.length - 1]!)) throw new Error(`Bad colormap interval: ${s}`);
+  const parts = t.slice(1, -1).split(',');
+  if (parts.length < 1 || parts.length > 2) throw new Error(`Bad colormap interval: ${s}`);
+  const lo = bound(parts[0]!);
+  const hi = parts.length === 2 ? bound(parts[1]!) : lo;
   let value: number;
   if (Number.isFinite(lo) && Number.isFinite(hi)) value = (lo + hi) / 2;
   else if (Number.isFinite(lo)) value = lo;
@@ -56,17 +81,17 @@ function parseRgb(s: string): [number, number, number] {
 /** Parse GIBS colormap XML into a Legend. Throws on malformed or empty input. */
 export function parseColormap(xml: string): Legend {
   if (xml.length > 2_000_000) throw new Error('Colormap too large');
-  const maps = [...xml.matchAll(/<ColorMap\b([^>]*)>([\s\S]*?)<\/ColorMap>/g)];
+  const maps = colorMapBlocks(xml);
   if (maps.length === 0) throw new Error('No <ColorMap> found');
   const entries: LegendEntry[] = [];
   let title = '';
   let units: string | null = null;
   let min = Infinity;
   let max = -Infinity;
-  for (const [, head, body] of maps) {
-    const mapAttrs = attrs(head!);
+  for (const { head, body } of maps) {
+    const mapAttrs = attrs(head);
     let mapHasData = false;
-    for (const e of body!.matchAll(/<ColorMapEntry\b([^>]*?)\/?>/g)) {
+    for (const e of body.matchAll(/<ColorMapEntry\b([^>]*)>/g)) {
       const a = attrs(e[1]!);
       if (!a.rgb) continue;
       const rgb = parseRgb(a.rgb);

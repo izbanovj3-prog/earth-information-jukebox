@@ -55,7 +55,8 @@ export function resolveShortcut(e: KeyInput): Action | null {
   if (e.dialogOpen) return null; // the dialog handles its own keys
   const tag = (e.tag ?? '').toLowerCase();
   const isTextEntry = tag === 'textarea' || (tag === 'input' && !['range', 'checkbox', 'radio', 'button'].includes(e.inputType ?? 'text'));
-  if (isTextEntry) return null;
+  // Text entry and <select> (type-ahead uses letters) keep every key.
+  if (isTextEntry || tag === 'select') return null;
   const isNativeArrowControl =
     tag === 'select' || (tag === 'input' && ['range', 'radio'].includes(e.inputType ?? '')) || e.role === 'radio' || e.role === 'slider';
   const isNativeSpaceControl =

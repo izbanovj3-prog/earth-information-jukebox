@@ -43,12 +43,13 @@ The app contains no third-party images or icons besides the NASA GIBS imagery ab
 
 ## Software
 
-Runtime (shipped to the browser):
+Runtime (shipped to the browser; React, React DOM and Scheduler are © Facebook, Inc. and its affiliates):
 
 | Package | Version | License |
 |---|---|---|
 | react | 18.3.1 | MIT |
 | react-dom | 18.3.1 | MIT |
+| scheduler (dependency of react-dom) | 0.23.2 | MIT |
 | @fontsource/bungee, @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-mono | 5.3.0 | OFL-1.1 (fonts) |
 
 Build and test tools (not shipped):
@@ -67,6 +68,10 @@ Build and test tools (not shipped):
 | eslint-plugin-react-hooks | 7.1.1 | MIT |
 | globals | 17.14.0 | MIT |
 | pngjs | 7.0.0 | MIT |
+| @types/node | 26.6.6 | MIT |
+| @types/pngjs | 6.0.5 | MIT |
+| @types/react | 18.3.31 | MIT |
+| @types/react-dom | 18.3.7 | MIT |
 
 ## Disclaimer
 

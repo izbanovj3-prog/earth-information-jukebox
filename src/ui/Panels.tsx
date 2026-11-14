@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Track } from '../data/catalog';
 import { formatValue } from '../data/catalog';
 import type { Manifest } from '../data/loader';
-import { BAND_NAMES } from '../sonify/mapping';
+import { BANDS, DRONE_METRIC_WORDS } from '../sonify/mapping';
 import type { Frame, Legend } from '../types';
 import { DISCLAIMER } from './Marquee';
 import styles from './Panels.module.css';
@@ -130,8 +130,10 @@ export function HowToListen({ track }: { track: Track }) {
         <li>
           <Icon d="M4 6 H20 M4 12 H20 M4 18 H20" />
           <span>
-            <strong>Three voices, three latitude bands:</strong> {BAND_NAMES[0]} = glassy chime, {BAND_NAMES[1]} = soft reed,{' '}
-            {BAND_NAMES[2]} = plucked string. They play in that order at each step.
+            <strong>
+              {BANDS.length} voices, {BANDS.length} latitude bands:
+            </strong>{' '}
+            {BANDS.map((b) => `${b.name} = ${b.timbreWord}`).join(', ')}. They play in that order at each step.
           </span>
         </li>
         <li>
@@ -149,9 +151,8 @@ export function HowToListen({ track }: { track: Track }) {
         <li>
           <Icon d="M2 14 Q6 10 10 14 T18 14 T22 14" />
           <span>
-            <strong>Low drone = change over time.</strong> It follows the global{' '}
-            {track.droneMetric === 'mean' ? 'average' : track.droneMetric === 'coverage' ? 'cover' : 'Arctic cover'} compared with the first
-            frame, and rises when it goes up. The drone deliberately exaggerates: a change of {track.changeScale} {track.display.unit} moves
+            <strong>Low drone = change over time.</strong> It follows the global {DRONE_METRIC_WORDS[track.droneMetric]} compared with the
+            first frame, and rises when it goes up. The drone deliberately exaggerates: a change of {track.changeScale} {track.display.unit} moves
             it a full musical fifth.
           </span>
         </li>
@@ -235,8 +236,9 @@ export function SourcesPanel({
             We acknowledge the use of imagery provided by services from NASA’s Global Imagery Browse Services (GIBS), part of NASA’s Earth
             Science Data and Information System (ESDIS). Fonts: Bungee (The Bungee Project Authors), Atkinson Hyperlegible (Braille
             Institute of America) and Atkinson Hyperlegible Mono (The Atkinson Hyperlegible Mono Project Authors), all SIL Open Font
-            License 1.1. Built with React (MIT) and Vite (MIT). All sounds are synthesized live with the Web Audio API; no recordings are
-            used. Full list in ATTRIBUTION.md.
+            License 1.1, served from this site through the Fontsource packages. Runtime code: React, React DOM and Scheduler (all MIT, © Facebook, Inc. and its
+            affiliates). Built with Vite (MIT) and TypeScript (Apache-2.0). All sounds are synthesized live with the Web Audio API; no
+            recordings or samples are used. Build and test tools are listed in ATTRIBUTION.md in the source repository.
           </p>
           <p className={styles.disclaimer}>{DISCLAIMER}</p>
         </div>

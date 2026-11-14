@@ -2,7 +2,7 @@
 import type { Frame, Legend } from '../types';
 import type { Track } from './catalog';
 import { luminanceLegend, parseColormap } from './colormap';
-import { FRAME_HEIGHT, FRAME_WIDTH, FetchError, fetchWithTimeout, readImage, readText, wmsUrl } from './gibs';
+import { FRAME_HEIGHT, FRAME_WIDTH, FetchError, fetchRead, readImage, readText, wmsUrl } from './gibs';
 
 export interface ManifestFrame {
   date: string;
@@ -63,18 +63,36 @@ function join(base: string, path: string): string {
   return base.endsWith('/') ? base + path : `${base}/${path}`;
 }
 
+const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
+
+/** Structural validation of the bundled manifest (it is our own file, but fail clearly if it is broken). */
+export function validateManifest(m: unknown): Manifest {
+  const bad = (why: string) => new Error(`Invalid frames manifest: ${why}`);
+  if (!m || typeof m !== 'object') throw bad('not an object');
+  const tracks = (m as { tracks?: unknown }).tracks;
+  if (!tracks || typeof tracks !== 'object') throw bad('missing tracks');
+  for (const [id, t] of Object.entries(tracks as Record<string, unknown>)) {
+    const tr = t as Partial<Manifest['tracks'][string]>;
+    if (!isStr(tr.layerId) || !isStr(tr.colormap) || !isStr(tr.colormapSource) || !Array.isArray(tr.frames)) {
+      throw bad(`track ${id}`);
+    }
+    for (const f of tr.frames) {
+      if (!f || !isStr(f.date) || !isStr(f.file) || !isStr(f.sourceUrl) || !f.file.startsWith('frames/')) {
+        throw bad(`frame entry in ${id}`);
+      }
+    }
+  }
+  return m as Manifest;
+}
+
 let manifestPromise: Promise<Manifest> | null = null;
 
 export function loadManifest(deps: LoaderDeps = {}): Promise<Manifest> {
-  const run = async () => {
-    const res = await fetchWithTimeout(join(deps.baseUrl ?? BASE_URL, 'frames/manifest.json'), {
+  const run = () =>
+    fetchRead(join(deps.baseUrl ?? BASE_URL, 'frames/manifest.json'), async (res) => validateManifest(JSON.parse(await readText(res))), {
       fetchImpl: deps.fetchImpl,
       timeoutMs: deps.timeoutMs,
     });
-    const m = JSON.parse(await readText(res)) as Manifest;
-    if (!m || typeof m !== 'object' || !m.tracks) throw new Error('Invalid frames manifest');
-    return m;
-  };
   if (deps.fetchImpl || deps.baseUrl) return run();
   manifestPromise ??= run().catch((e: unknown) => {
     manifestPromise = null;
@@ -89,11 +107,11 @@ export async function loadLegend(track: Track, deps: LoaderDeps = {}): Promise<{
     const manifest = await loadManifest(deps);
     const entry = manifest.tracks[track.id];
     if (!entry) throw new Error(`Track ${track.id} missing from manifest`);
-    const res = await fetchWithTimeout(join(deps.baseUrl ?? BASE_URL, entry.colormap), {
+    const legend = await fetchRead(join(deps.baseUrl ?? BASE_URL, entry.colormap), async (res) => parseColormap(await readText(res)), {
       fetchImpl: deps.fetchImpl,
       timeoutMs: deps.timeoutMs,
     });
-    return { legend: parseColormap(await readText(res)) };
+    return { legend };
   } catch (e) {
     return {
       legend: luminanceLegend(),
@@ -113,6 +131,8 @@ export interface LoadResult {
   frame: Frame;
   /** Set when live data failed and the bundled copy was used. */
   fallbackReason?: string;
+  /** True when the app is configured never to contact GIBS (VITE_OFFLINE_ONLY). */
+  offline?: boolean;
 }
 
 export async function loadFrame(
@@ -122,7 +142,7 @@ export async function loadFrame(
   opts: LoaderDeps & { preferLive?: boolean; signal?: AbortSignal } = {},
 ): Promise<LoadResult> {
   const decode = opts.decode ?? decodeInBrowser;
-  const fetchImpl = opts.fetchImpl;
+  const fetchOpts = { fetchImpl: opts.fetchImpl, signal: opts.signal, timeoutMs: opts.timeoutMs };
   const offline = opts.offlineOnly ?? OFFLINE_ONLY;
   const make = (img: DecodedImage, mode: 'live' | 'bundled', url: string): Frame => ({
     trackId: track.id,
@@ -133,32 +153,27 @@ export async function loadFrame(
     legend,
     source: { provider: 'NASA GIBS', layerId: track.layerId, layerTitle: track.layerTitle, date, url, mode },
   });
+  // PNG header is checked for 720x360 before decoding; decoded size is checked again after.
+  const readFrame = async (res: Response) => {
+    const img = await decode(await readImage(res));
+    validateDims(img);
+    return img;
+  };
 
   let fallbackReason: string | undefined;
   if (opts.preferLive !== false && !offline) {
     const url = wmsUrl(track.layerId, date);
     try {
-      const res = await fetchWithTimeout(url, { fetchImpl, signal: opts.signal, timeoutMs: opts.timeoutMs });
-      const img = await decode(await readImage(res));
-      validateDims(img);
-      return { frame: make(img, 'live', url) };
+      return { frame: make(await fetchRead(url, readFrame, fetchOpts), 'live', url) };
     } catch (e) {
       if (e instanceof FetchError && e.kind === 'aborted') throw e;
       fallbackReason = e instanceof Error ? e.message : String(e);
     }
-  } else {
-    fallbackReason = offline ? 'Offline mode' : undefined;
   }
 
   const manifest = await loadManifest(opts);
   const entry = manifest.tracks[track.id]?.frames.find((f) => f.date === date);
   if (!entry) throw new Error(`No bundled frame for ${track.id} ${date}`);
-  const res = await fetchWithTimeout(join(opts.baseUrl ?? BASE_URL, entry.file), {
-    fetchImpl,
-    signal: opts.signal,
-    timeoutMs: opts.timeoutMs,
-  });
-  const img = await decode(await readImage(res));
-  validateDims(img);
-  return { frame: make(img, 'bundled', entry.sourceUrl), fallbackReason };
+  const img = await fetchRead(join(opts.baseUrl ?? BASE_URL, entry.file), readFrame, fetchOpts);
+  return { frame: make(img, 'bundled', entry.sourceUrl), fallbackReason, offline: offline || undefined };
 }

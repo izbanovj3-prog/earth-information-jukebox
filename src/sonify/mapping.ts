@@ -1,10 +1,33 @@
 // Pure mapping from samples to note events. No audio here.
-import type { ColumnSample, DroneParams, MappingConfig, NoteEvent, ScaleName, Timbre } from '../types';
+import type { ColumnSample, DroneMetric, DroneParams, MappingConfig, NoteEvent, ScaleName, Timbre } from '../types';
 import { midiToFreq, quantize } from './scales';
 
-/** Distinct timbre per latitude band (north, tropics, south). */
-export const BAND_TIMBRES: Timbre[] = ['glass', 'reed', 'pluck'];
-export const BAND_NAMES = ['North', 'Tropics', 'South'] as const;
+/**
+ * The latitude bands, north -> south: the single source of truth for sampling, voices, on-screen
+ * labels and the How-to-listen text. Bands split the globe into equal latitude ranges.
+ */
+export const BANDS = [
+  { name: 'North', timbre: 'glass', timbreWord: 'glassy chime' },
+  { name: 'Tropics', timbre: 'reed', timbreWord: 'soft reed' },
+  { name: 'South', timbre: 'pluck', timbreWord: 'plucked string' },
+] as const satisfies readonly { name: string; timbre: Timbre; timbreWord: string }[];
+export const BAND_COUNT = BANDS.length;
+export const BAND_TIMBRES: Timbre[] = BANDS.map((b) => b.timbre);
+export const BAND_NAMES: string[] = BANDS.map((b) => b.name);
+
+/** [south, north] latitude edges of band i. */
+export function bandLatitudes(i: number, count: number = BAND_COUNT): [number, number] {
+  return [90 - ((i + 1) * 180) / count, 90 - (i * 180) / count];
+}
+
+/** Words for each drone metric (a missing entry is a compile error). */
+export const DRONE_METRIC_WORDS: Record<DroneMetric, string> = {
+  mean: 'average',
+  coverage: 'cover',
+  northCoverage: 'Arctic cover (North band)',
+};
+
+export const DEFAULT_ROOT_MIDI = 48;
 
 export interface Preset {
   id: 'calm' | 'dramatic';
@@ -127,7 +150,7 @@ export function buildMapping(
 ): MappingConfig {
   return {
     scale: overrides.scale ?? preset.scale,
-    rootMidi: overrides.rootMidi ?? 48,
+    rootMidi: overrides.rootMidi ?? DEFAULT_ROOT_MIDI,
     octaves: preset.octaves,
     range,
     outliers: overrides.outliers ?? { low: 0.06, high: 0.06 },

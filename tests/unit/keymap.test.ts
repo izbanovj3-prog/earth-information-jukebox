@@ -28,6 +28,8 @@ describe('resolveShortcut', () => {
     expect(resolveShortcut({ key: 'ArrowDown', tag: 'select' })).toBeNull();
     expect(resolveShortcut({ key: 'ArrowRight', tag: 'button' })).toBeNull();
     expect(resolveShortcut({ key: 'm', tag: 'input', inputType: 'text' })).toBeNull();
+    // menus use letters for type-ahead (e.g. Key = D/E, Mood = Dramatic)
+    for (const key of ['d', 'e', 'm', '[', ']', '.', ',', '?', ' ']) expect(resolveShortcut({ key, tag: 'select' })).toBeNull();
   });
 
   it('still allows letter shortcuts while a slider or button is focused', () => {

@@ -44,7 +44,4 @@ NASA's Earth Information Center (EIC) produces striking visualizations of our ch
 
 ## Resources
 
-See the **Resources** tab on the official challenge page (more may be added before the hackathon). Record the links we actually use in [`../README.md`](../README.md#nasa-data--resources-used).
-
-- _TODO: EIC visualization links_
-- _TODO: other resources_
+See the **Resources** tab on the official challenge page. The data, fonts and libraries this project actually uses are listed in [`../ATTRIBUTION.md`](../ATTRIBUTION.md); the NASA GIBS layers we chose and why are in [`../README.md`](../README.md#the-five-records) and [`../CONTEXT.md`](../CONTEXT.md).

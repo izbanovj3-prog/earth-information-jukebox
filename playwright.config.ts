@@ -17,5 +17,7 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: false,
     timeout: 180_000,
+    // Hermetic: a developer's local .env must not change what the e2e suite tests.
+    env: { VITE_GIBS_WMS_URL: '', VITE_OFFLINE_ONLY: 'false' },
   },
 });

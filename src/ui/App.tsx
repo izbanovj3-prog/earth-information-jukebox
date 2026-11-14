@@ -6,12 +6,14 @@ import './global.css';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { keyInputFromEvent, resolveShortcut, type Action } from '../a11y/keymap';
-import { describeColumn, describeFrame, formatLat, formatLon, levelWord, Throttle } from '../a11y/narration';
+import { describeColumn, describeFrame, describeFrameChange, describePlaying, describeProbe, Throttle } from '../a11y/narration';
 import { AudioEngine } from '../audio/engine';
 import { JukeboxPlayer } from '../audio/player';
-import { formatDate, formatValue, TRACKS } from '../data/catalog';
+import { formatDate, TRACKS, withLegend } from '../data/catalog';
+import { FRAME_HEIGHT, FRAME_WIDTH } from '../data/gibs';
+import { latToY, lonToX } from '../data/values';
 import { BASE_URL, loadManifest, type Manifest } from '../data/loader';
-import { buildMapping, PRESETS, type Preset } from '../sonify/mapping';
+import { buildMapping, DEFAULT_ROOT_MIDI, PRESETS, type Preset } from '../sonify/mapping';
 import { frameStats } from '../sonify/sample';
 import type { ScaleName } from '../types';
 import styles from './App.module.css';
@@ -45,14 +47,32 @@ export function App() {
   // Initial record/date can come from the URL (?record=sea-ice&date=2012-09-15) so views are shareable.
   const [initial] = useState(() => {
     const q = new URLSearchParams(window.location.search);
-    const t = Math.max(0, TRACKS.findIndex((tr) => tr.id === q.get('record')));
-    const d = TRACKS[t]!.dates.indexOf(q.get('date') ?? '');
-    return { track: t, frame: Math.max(0, d) };
+    const notes: string[] = [];
+    const wanted = q.get('record');
+    let t = TRACKS.findIndex((tr) => tr.id === wanted);
+    if (t < 0) {
+      if (wanted) notes.push(`There is no record called “${wanted}”, so the first record is playing.`);
+      t = 0;
+    }
+    const dates = TRACKS[t]!.dates;
+    const wantedDate = q.get('date');
+    let d = wantedDate ? dates.indexOf(wantedDate) : 0;
+    if (d < 0) {
+      // Snap to the nearest available date and say so.
+      const target = Date.parse(wantedDate!);
+      d = Number.isNaN(target)
+        ? 0
+        : dates.reduce((best, x, i) => (Math.abs(Date.parse(x) - target) < Math.abs(Date.parse(dates[best]!) - target) ? i : best), 0);
+      notes.push(`${TRACKS[t]!.title} has no frame for “${wantedDate}”; showing ${formatDate(TRACKS[t]!, dates[d]!)} instead.`);
+    }
+    return { track: t, frame: d, notice: notes.join(' ') };
   });
   const [trackIndex, setTrackIndex] = useState(initial.track);
   const [frameIndex, setFrameIndex] = useState(initial.frame);
-  const track = TRACKS[trackIndex]!;
-  const data = useTrackFrames(track, frameIndex);
+  const baseTrack = TRACKS[trackIndex]!;
+  const data = useTrackFrames(baseTrack, frameIndex);
+  // With an uncalibrated (brightness) legend, range, units and words switch to relative values.
+  const track = useMemo(() => withLegend(baseTrack, data.legend), [baseTrack, data.legend]);
   const [manifest, setManifest] = useState<Manifest | null>(null);
 
   // Created once; the AudioContext itself is only created later, on a user gesture.
@@ -62,11 +82,11 @@ export function App() {
   const [mode, setMode] = useState<'scan' | 'explore'>('scan');
   const [scan, setScan] = useState(0);
   const [hearing, setHearing] = useState('Nothing yet. Press Play (or Space) to start the scan, or E to explore the map.');
-  const [cursor, setCursor] = useState({ x: 360, y: 90 });
+  const [cursor, setCursor] = useState({ x: FRAME_WIDTH / 2, y: FRAME_HEIGHT / 4 });
   const [cursorLabel, setCursorLabel] = useState('Explore: click the map, or press E and use the arrow keys.');
   const [preset, setPreset] = useState<Preset['id']>('calm');
   const [scale, setScale] = useState<ScaleName>(PRESETS.calm.scale);
-  const [rootMidi, setRootMidi] = useState(48);
+  const [rootMidi, setRootMidi] = useState(DEFAULT_ROOT_MIDI);
   const [tempo, setTempo] = useState(PRESETS.calm.tempo);
   const [volume, setVolume] = useState(0.35);
   const [muted, setMuted] = useState(false);
@@ -85,15 +105,16 @@ export function App() {
   const dateLabels = useMemo(() => track.dates.map((d) => formatDate(track, d)), [track]);
   const dateLabel = dateLabels[frameIndex] ?? '';
 
+  const frameError = data.frameErrors[frameIndex];
   const description = useMemo(() => {
-    if (!frame) return data.status === 'error' ? 'No frame could be loaded.' : 'Loading the first frame…';
+    if (!frame) return frameError ? `The frame for ${dateLabel} could not be loaded.` : `Loading ${dateLabel}…`;
     return describeFrame(
       track,
       frame.date,
       frameStats(frame),
       baseFrame ? { date: baseFrame.date, stats: frameStats(baseFrame) } : undefined,
     );
-  }, [frame, baseFrame, track, data.status]);
+  }, [frame, baseFrame, track, frameError, dateLabel]);
 
   // Latest values for callbacks fired by the audio clock.
   const live = useRef({ track, narration, dateLabels, data, frameIndex, mode, playing, cursor });
@@ -154,7 +175,7 @@ export function App() {
         if (l.narration !== 'off' && l.playing) {
           const f = l.data.frames[i];
           const s = f ? frameStats(f) : null;
-          urgent(`${l.dateLabels[i]}. Average ${s ? formatValue(l.track, s.mean) : 'unknown'}.`);
+          urgent(describeFrameChange(l.track, l.dateLabels[i] ?? '', s));
         }
       }),
     [player, urgent],
@@ -167,8 +188,9 @@ export function App() {
       firstRender.current = false;
       return;
     }
-    if (live.current.narration !== 'off') urgent(`Record ${trackIndex + 1}: ${track.title}. ${track.subtitle}.`);
-  }, [track, trackIndex, urgent]);
+    const t = TRACKS[trackIndex]!;
+    if (live.current.narration !== 'off') urgent(`Record ${trackIndex + 1}: ${t.title}. ${t.subtitle}.`);
+  }, [trackIndex, urgent]);
 
   // Visual + narration sync on the audio clock.
   useEffect(() => {
@@ -200,19 +222,30 @@ export function App() {
       await player.play();
       setPlaying(true);
       const l = live.current;
-      if (l.narration !== 'off') urgent(`Playing ${l.track.title}, ${l.dateLabels[player.currentFrameIndex]}. Scanning west to east.`);
+      if (l.narration !== 'off') urgent(describePlaying(l.track, l.dateLabels[player.currentFrameIndex] ?? ''));
     } catch (e) {
       setAudioError(e instanceof Error ? e.message : String(e));
     }
   }, [player, urgent]);
 
+  // Tour timers live here (declared before pause so pausing can cancel them).
+  const [touring, setTouring] = useState(false);
+  const tourTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const stopTour = useCallback(() => {
+    tourTimers.current.forEach(clearTimeout);
+    tourTimers.current = [];
+    setTouring(false);
+  }, []);
+
   const pause = useCallback(
     async (reason?: string) => {
+      // Any pause ends the demo tour, so no later timer can resume audio without a gesture.
+      stopTour();
       await player.pause();
       setPlaying(false);
       urgent(reason ?? 'Paused.');
     },
-    [player, urgent],
+    [player, urgent, stopTour],
   );
 
   const togglePlay = useCallback(() => {
@@ -223,11 +256,12 @@ export function App() {
   // Pause when the tab is hidden; never resume without a gesture.
   useEffect(() => {
     const onVis = () => {
-      if (document.hidden && live.current.playing) void pause('Paused because the tab was hidden.');
+      // Covers explore mode too: any running audio stops when the tab is hidden.
+      if (document.hidden && player.engine.started) void pause('Paused because the tab was hidden.');
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [pause]);
+  }, [pause, player]);
 
   const seek = useCallback(
     (i: number) => {
@@ -274,15 +308,16 @@ export function App() {
     }
   }, [player]);
 
+  /** Explore probe. `gesture` is false for mouse hover, which must never start audio. */
   const probeAt = useCallback(
-    async (x: number, y: number) => {
+    async (x: number, y: number, gesture = true) => {
       enterExplore();
       setCursor({ x, y });
       try {
-        const r = await player.probeAt(x, y);
+        const r = await player.probeAt(x, y, gesture);
         if (!r) return;
         const l = live.current;
-        const text = `${formatLat(r.lat)} ${formatLon(r.lon)}: ${formatValue(l.track, r.value)}${r.value === null ? '' : `, ${levelWord(l.track, r.value)}`}`;
+        const text = describeProbe(l.track, r.lat, r.lon, r.value);
         setCursorLabel(text);
         setHearing(`Explore cursor at ${text}.`);
         setNowValue(r.value);
@@ -295,13 +330,6 @@ export function App() {
   );
 
   // ----- Demo tour (scripted, ~90 s; starts only from a button press) -----
-  const [touring, setTouring] = useState(false);
-  const tourTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const stopTour = useCallback(() => {
-    tourTimers.current.forEach(clearTimeout);
-    tourTimers.current = [];
-    setTouring(false);
-  }, []);
   useEffect(() => stopTour, [stopTour]);
 
   const runTourAction = useCallback(
@@ -320,9 +348,8 @@ export function App() {
         case 'say':
           return urgent(a.text);
         case 'explore': {
-          const x = Math.round(((a.lon + 180) / 360) * 720);
-          const y = Math.round(((90 - a.lat) / 180) * 360);
-          return void probeAt(Math.min(719, x), Math.min(359, y));
+          const dims = { width: FRAME_WIDTH, height: FRAME_HEIGHT };
+          return void probeAt(lonToX(dims, a.lon), latToY(dims, a.lat));
         }
         case 'end':
           stopTour();
@@ -390,8 +417,8 @@ export function App() {
           return urgent(description);
         case 'move': {
           const f = l.data.frames[l.frameIndex];
-          const w = f?.width ?? 720;
-          const h = f?.height ?? 360;
+          const w = f?.width ?? FRAME_WIDTH;
+          const h = f?.height ?? FRAME_HEIGHT;
           const x = Math.min(w - 1, Math.max(0, l.cursor.x + a.dx * CURSOR_STEP));
           const y = Math.min(h - 1, Math.max(0, l.cursor.y + a.dy * CURSOR_STEP));
           void probeAt(x, y);
@@ -428,11 +455,23 @@ export function App() {
         </div>
 
         <div className={styles.center} id="player" tabIndex={-1}>
-          {data.fallbackReason && (
+          {initial.notice && trackIndex === initial.track && (
             <p className={styles.banner} role="status">
-              Live NASA GIBS imagery is unavailable right now, so you are hearing bundled copies of the same NASA images
+              {initial.notice}
+            </p>
+          )}
+          {data.offline ? (
+            <p className={styles.banner} role="status">
+              Offline mode: you are hearing the bundled copies of the NASA GIBS images
               {manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.
             </p>
+          ) : (
+            data.fallbackReason && (
+              <p className={styles.banner} role="status">
+                Live NASA GIBS imagery is unavailable right now, so you are hearing bundled copies of the same NASA images
+                {manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.
+              </p>
+            )
           )}
           {data.legendWarning && (
             <p className={styles.banner} role="status">
@@ -451,10 +490,10 @@ export function App() {
             legend={data.legend}
             basemapUrl={BASEMAP}
             dateLabel={dateLabel}
-            status={data.status}
+            status={frame ? 'ready' : frameError ? 'error' : 'loading'}
             loaded={data.loaded}
             total={track.dates.length}
-            error={data.error}
+            error={frameError}
             onRetry={data.retry}
             mode={mode}
             scan={scan}
@@ -463,7 +502,7 @@ export function App() {
             cursor={cursor}
             cursorLabel={cursorLabel}
             descriptionId="frame-desc"
-            onProbe={(x, y) => void probeAt(x, y)}
+            onProbe={(x, y, gesture) => void probeAt(x, y, gesture)}
             onMapFocus={enterExplore}
           />
           <LegendBar legend={data.legend} track={track} marker={nowValue} />
