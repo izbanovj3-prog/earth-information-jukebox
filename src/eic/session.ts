@@ -505,14 +505,21 @@ export class EicSession {
     if (this.ctx?.state === 'running') await this.ctx.suspend();
   }
 
-  /** Render the whole record offline, in the mode that is sounding now, as a 16-bit stereo WAV. */
-  async renderWav(): Promise<{ blob: Blob; seconds: number; mode: SoundMode; file: string }> {
+  /** Render the whole record offline with the current mixer mutes, in the mode that is sounding now, as a 16-bit stereo WAV. */
+  async renderWav(opts: { onProgress?: (fraction: number) => void; signal?: AbortSignal } = {}): Promise<{ blob: Blob; seconds: number; mode: SoundMode; file: string }> {
     if (!this.frames) throw new Error('the frames are still loading');
     const ds = this.dataset;
     const mode: SoundMode = this.state.activeMode === 'orchestra' && this.orchestraReadyFor(ds.id) ? 'orchestra' : 'science';
     const sweep = mode === 'orchestra' ? sweepForBpm(orchestraFor(ds.id).bpm) : SCIENCE_SWEEP;
-    const buf = await renderOffline(ds, this.frames, { sweep, mode, samples: mode === 'orchestra' ? this.bank : null, muted: [...this.muteSet(mode)] });
-    return { blob: encodeWav(buf), seconds: buf.duration, mode, file: `earth-jukebox-${ds.id}-${mode}.wav` };
+    const buf = await renderOffline(ds, this.frames, {
+      sweep,
+      mode,
+      samples: mode === 'orchestra' ? this.bank : null,
+      muted: [...this.muteSet(mode)],
+      onProgress: opts.onProgress ?? null,
+      signal: opts.signal ?? null,
+    });
+    return { blob: encodeWav(buf), seconds: buf.duration, mode, file: `earth-jukebox-${ds.id}-${mode}-my-mix.wav` };
   }
 
   // ----- mixer -----

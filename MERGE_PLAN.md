@@ -228,3 +228,5 @@ Not done yet: should-do items (playlist, WAV export, trend chart + table, mixer,
 | P2 | Not started: light theme, live video (local-only), orchestra for GIBS records. |
 
 Fast 3G at 390 px after these items (EIC landing): 723 KB before the click, first sound 0.73 s after Play, orchestra 39 s after Play, 7.9 MB total, no console errors.
+
+**Export, revised (branch `feat/instant-export`):** "Export WAV" became two controls after the live re-render proved slow and unreliable. "Download this soundscape" hands over the ready-made playlist file (WebM/Opus) for the record and chosen mode at once. "Render with my mixer settings" re-renders a WAV with the mixer mutes; it now schedules one frame at a time at suspend checkpoints, so it shows real progress, can be cancelled, and reports errors. Measured on the branch build: Orchestra 21 s (Night Lights), Scientific 24-188 s depending on the record; all six test renders produced audible WAVs (-16 to -21 dBFS).

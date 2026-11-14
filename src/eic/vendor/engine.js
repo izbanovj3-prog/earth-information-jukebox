@@ -720,38 +720,68 @@ export class Player {
 }
 
 // ---------- offline render ----------
-export async function renderOffline(ds, frames, { sweep = SWEEP_SECONDS, sampleRate = 44100, muted = [], mode = MODE, samples = null } = {}) {
-  const saved = SWEEP_SECONDS, savedMode = MODE;
-  setSweep(sweep);
-  setMode(mode);
-  try {
-    const tail = 3;
-    const dur = frames.length * sweep + tail;
-    const ctx = new OfflineAudioContext(2, Math.ceil(dur * sampleRate), sampleRate);
-    const E = new Engine(ctx);
-    if (mode === 'orchestra') {
-      if (!samples) throw new Error('orchestra samples not loaded');
-      E.samples = samples;
-    }
-    for (const m of muted) E.setMuted(m, true);
-    const total = frames.length * COLS;
-    for (let k = 0; k < total; k++) scheduleStep(E, ds, frames, k, 0.05 + k * STEP);
-    const buf = await ctx.startRendering();
-    // normalise to -1 dBFS
-    let peak = 0;
-    for (let ch = 0; ch < buf.numberOfChannels; ch++) {
-      const d = buf.getChannelData(ch);
-      for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
-    }
-    if (peak > 0) {
-      const g = 0.89 / peak;
-      for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] *= g; }
-    }
-    return buf;
-  } finally {
-    setSweep(saved);
-    setMode(savedMode);
+// MERGE: frames are scheduled one at a time at suspend checkpoints instead of all up front. That
+// reports progress per frame, lets the caller cancel (an aborted render is never resumed), keeps
+// fewer audio nodes alive at once, and only touches the shared MODE/STEP globals while scheduling,
+// so live playback during a render keeps its own tempo. Each step keeps its seeded randomness
+// and start time; only the moment it is scheduled (just ahead of its frame) changes.
+export async function renderOffline(ds, frames, { sweep = SWEEP_SECONDS, sampleRate = 44100, muted = [], mode = MODE, samples = null, onProgress = null, signal = null } = {}) {
+  if (signal?.aborted) throw new DOMException('Rendering cancelled', 'AbortError');
+  const tail = 3;
+  const dur = frames.length * sweep + tail;
+  const ctx = new OfflineAudioContext(2, Math.ceil(dur * sampleRate), sampleRate);
+  const E = new Engine(ctx);
+  if (mode === 'orchestra') {
+    if (!samples) throw new Error('orchestra samples not loaded');
+    E.samples = samples;
   }
+  for (const m of muted) E.setMuted(m, true);
+  const step = sweep / COLS;
+  const lead = 0.5; // schedule each frame this many seconds before it starts
+  const scheduleFrame = (f) => {
+    const saved = SWEEP_SECONDS, savedMode = MODE;
+    setSweep(sweep);
+    setMode(mode);
+    try {
+      for (let c = 0; c < COLS; c++) {
+        const k = f * COLS + c;
+        scheduleStep(E, ds, frames, k, 0.05 + k * step);
+      }
+    } finally {
+      setSweep(saved);
+      setMode(savedMode);
+    }
+  };
+  scheduleFrame(0);
+  let cancel = null;
+  const cancelled = new Promise((_, reject) => {
+    cancel = () => reject(new DOMException('Rendering cancelled', 'AbortError'));
+    signal?.addEventListener('abort', cancel, { once: true });
+  });
+  const quantum = 128 / sampleRate;
+  for (let f = 1; f < frames.length; f++) {
+    const at = Math.max(quantum, Math.floor((0.05 + f * COLS * step - lead) / quantum) * quantum);
+    ctx.suspend(at).then(() => {
+      if (signal?.aborted) return; // never resumed: the render stops here
+      scheduleFrame(f);
+      onProgress?.(f / frames.length);
+      ctx.resume();
+    });
+  }
+  const buf = await Promise.race([ctx.startRendering(), cancelled]);
+  signal?.removeEventListener('abort', cancel);
+  onProgress?.(1);
+  // normalise to -1 dBFS
+  let peak = 0;
+  for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+    const d = buf.getChannelData(ch);
+    for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > peak) peak = a; }
+  }
+  if (peak > 0) {
+    const g = 0.89 / peak;
+    for (let ch = 0; ch < buf.numberOfChannels; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < d.length; i++) d[i] *= g; }
+  }
+  return buf;
 }
 
 export function encodeWav(buf) {

@@ -162,17 +162,74 @@ test.describe('Earth Information Center records', () => {
     await expectNoSeriousA11yViolations(page, 'library with playlist');
   });
 
-  test('Export WAV renders the current record offline and offers a download', async ({ page }) => {
-    test.slow();
+  test('instant download: the ready-made file for this record and the chosen mode', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    const dl = page.getByRole('link', { name: 'Download this soundscape' });
+    await expect(dl).toBeVisible();
+    let t0 = Date.now();
+    let d = await Promise.all([page.waitForEvent('download'), dl.click()]).then(([x]) => x);
+    expect(d.suggestedFilename()).toBe('01-nightlights-orchestra.webm');
+    expect(Date.now() - t0).toBeLessThan(5000);
+    expect((await d.createReadStream()) && (await import('node:fs')).statSync((await d.path())!).size).toBeGreaterThan(500_000);
+    await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
+    t0 = Date.now();
+    d = await Promise.all([page.waitForEvent('download'), dl.click()]).then(([x]) => x);
+    expect(d.suggestedFilename()).toBe('01-nightlights-science.webm');
+    expect(Date.now() - t0).toBeLessThan(5000);
+  });
+
+  test('render with my mixer settings: progress bar moves, Cancel stops it, the button comes back', async ({ page }) => {
     await page.goto('/?record=eic-airquality');
     await waitForFrame(page);
     await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
-    await page.getByRole('button', { name: 'Export WAV' }).click();
-    await expect(page.getByTestId('wav-status')).toContainText('Rendering');
-    const link = page.getByRole('link', { name: /Download earth-jukebox-airquality-science\.wav/ });
-    await expect(link).toBeVisible({ timeout: 80_000 });
-    const download = await Promise.all([page.waitForEvent('download'), link.click()]).then(([d]) => d);
-    expect(download.suggestedFilename()).toBe('earth-jukebox-airquality-science.wav');
+    await page.getByRole('group', { name: 'Mixer' }).getByRole('button').first().click();
+    await expect(page.getByText('WAV, 1 mixer layer off. Takes a minute or two.')).toBeVisible();
+    const render = page.getByRole('button', { name: 'Render with my mixer settings' });
+    await render.click();
+    const bar = page.getByRole('progressbar', { name: 'Rendering progress' });
+    await expect(bar).toBeVisible();
+    await expect.poll(async () => Number(await bar.getAttribute('aria-valuenow')), { timeout: 60_000 }).toBeGreaterThan(0);
+    await expect(render).toBeDisabled();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByTestId('wav-status')).toHaveText('Rendering cancelled.');
+    await expect(bar).toBeHidden();
+    await expect(render).toBeEnabled();
+    await expectNoSeriousA11yViolations(page, 'export controls after cancel');
+  });
+
+  test('render with my mixer settings: a failure shows a clear error and keeps the ready-made download', async ({ page }) => {
+    await page.addInitScript(() => {
+      OfflineAudioContext.prototype.startRendering = () => Promise.reject(new Error('the browser ran out of memory'));
+    });
+    await page.goto('/?record=eic-lightning');
+    await waitForFrame(page);
+    await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
+    await page.getByRole('button', { name: 'Render with my mixer settings' }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Rendering failed' })).toHaveText(
+      'Rendering failed: the browser ran out of memory. The ready-made download above still works.',
+    );
+    await expect(page.getByRole('link', { name: 'Download this soundscape' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Render with my mixer settings' })).toBeEnabled();
+  });
+
+  test('render with my mixer settings: runs to the end and the WAV has sound', async ({ page }) => {
+    test.setTimeout(360_000); // a full offline render takes 1-2 minutes, more on a loaded machine
+    await page.goto('/?record=eic-airquality');
+    await waitForFrame(page);
+    await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
+    await page.getByRole('button', { name: 'Render with my mixer settings' }).click();
+    const link = page.getByRole('link', { name: /Download earth-jukebox-airquality-science-my-mix\.wav/ });
+    await expect(link).toBeVisible({ timeout: 330_000 });
+    const d = await Promise.all([page.waitForEvent('download'), link.click()]).then(([x]) => x);
+    const buf = (await import('node:fs')).readFileSync((await d.path())!);
+    expect(buf.toString('ascii', 0, 4)).toBe('RIFF');
+    const sr = buf.readUInt32LE(24);
+    const seconds = (buf.length - 44) / (sr * 4);
+    expect(seconds).toBeGreaterThan(60);
+    let sum = 0;
+    for (let i = 44; i < buf.length; i += 2 * 97) sum += (buf.readInt16LE(i) / 32768) ** 2; // sparse sample
+    expect(Math.sqrt(sum / ((buf.length - 44) / (2 * 97)))).toBeGreaterThan(0.01);
   });
 
   test('trend chart: summary for screen readers, a data table, and clicking a point jumps to that frame', async ({ page }) => {
