@@ -55,6 +55,10 @@ npm run e2e
 
 `npm run frames` downloads and re-verifies the bundled frames (needs network access to `gibs.earthdata.nasa.gov`). It only rewrites `public/frames/` when every frame and colormap passes.
 
+## Deploy
+
+`.github/workflows/pages.yml` runs lint, typecheck, the unit tests and the end-to-end suite, builds `dist/` and publishes it to GitHub Pages. It runs only on pushes to `main` (or by hand from the Actions tab); one-time setup is **Settings → Pages → Source: GitHub Actions**. The build is plain static files with relative paths, so any static host works: upload `dist/`.
+
 ## The ten records
 
 ### Earth Information Center (NASA SVS)
