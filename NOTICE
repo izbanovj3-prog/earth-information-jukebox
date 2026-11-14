@@ -13,6 +13,8 @@ Apache-2.0. Those files keep their copyright notice in a header comment:
   src/eic/vendor/orchestra.js
   src/eic/vendor/env.js (rewritten for the merged static build)
   public/eic/baked/** (frames pre-analysed by the prototype's bake tool)
+  public/eic/playlist/** (soundscapes rendered by the prototype)
+  docs/STORY.md (method and artistic choices)
 
 Orchestral samples in public/eic/samples/ are from VS Chamber Orchestra 2:
 Community Edition by Versilian Studios, CC0-1.0 (public domain dedication).

@@ -67,7 +67,7 @@ npm run e2e
 | E4 | Lightning seen from the ISS | [5011](https://svs.gsfc.nasa.gov/5011/) (EIC) | 12, monthly 2019 (dates measured from the video) |
 | E5 | Air Quality, fire season 2024 | [5533](https://svs.gsfc.nasa.gov/5533/) GEOS-CF (EIC) | 8, every ~9 days, Jul – Aug 2024 |
 
-Each frame is reduced to a 64 x 32 grid by reading the visualization's own colour key; values are normalised across all frames of a record so change over time stays audible. **Scientific** gives each record its own synth rules. **Orchestra** gives every colour family its own section of a CC0 sampled chamber orchestra (blue strings, green woodwinds, yellow harp, orange horns, red trumpets, violet violas, white piano and glockenspiel) with tempo, harmony, melody, bass and a data-driven groove. Play always starts at once in Scientific; when you prefer Orchestra (the default, remembered), only the instruments that record needs are downloaded (Night Lights 6.6 MB, Lightning 4.3 MB, the others 10–12 MB, instead of all 16 MB) and the orchestra takes over mid-sweep. The method and every artistic choice are explained in the teammate's [STORY.md](https://github.com/izbanovj3-prog/earth-information-jukebox/blob/feat/earth-jukebox-mvp/docs/STORY.md) (to be merged into `docs/`).
+Each frame is reduced to a 64 x 32 grid by reading the visualization's own colour key; values are normalised across all frames of a record so change over time stays audible. **Scientific** gives each record its own synth rules. **Orchestra** gives every colour family its own section of a CC0 sampled chamber orchestra (blue strings, green woodwinds, yellow harp, orange horns, red trumpets, violet violas, white piano and glockenspiel) with tempo, harmony, melody, bass and a data-driven groove. Play always starts at once in Scientific; when you prefer Orchestra (the default, remembered), only the instruments that record needs are downloaded (Night Lights 6.6 MB, Lightning 4.3 MB, the others 10–12 MB, instead of all 16 MB) and the orchestra takes over mid-sweep. The method and every artistic choice are explained in [`docs/STORY.md`](docs/STORY.md).
 
 ### NASA GIBS data records
 
@@ -105,7 +105,8 @@ The engine schedules notes 100 ms ahead on the AudioContext clock and moves the 
 ## Screens
 
 - **Player** (`AppShell` + `PlayerView`): the main view. A record rail, the map with its scan line, the time scrubber, and a side panel with the live telemetry readout, per-band meters and a how-to-listen summary. The same components reflow into a single column with a fixed bottom transport bar on narrow screens; there is no separate mobile build.
-- **Track Library** (`LibraryView`): a full-page, filterable list of all five records, reachable from the player's "Browse all records" link, with an inline play control per row.
+- **Earth Information Center player** (`EicPlayerView`): the same rail and transport for the five SVS records, with the Orchestra/Scientific switch and loading progress, a mixer with activity lights, a trend chart with a data table, the record's two playlist tracks and Export WAV. The library adds a curated playlist of all ten pre-rendered soundscapes.
+- **Track Library** (`LibraryView`): a full-page, filterable list of all ten records, reachable from the player's "Browse all records" link, with an inline play control per row.
 - **How to Listen** (`HowToListenSheet`): a right-docked dialog (opened from the header or `?`) with what the sound means, the keyboard shortcuts, and sources and limits for the current record.
 
 ## Architecture
