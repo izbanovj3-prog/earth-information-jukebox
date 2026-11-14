@@ -2,6 +2,7 @@ import { EIC_DATASETS } from '../eic/session';
 import { useEffect, useState, type ReactNode } from 'react';
 import { TRACKS } from '../data/catalog';
 import { BackIcon, MuteIcon, PersonIcon, VolumeIcon } from './icons';
+import { TOUR_SECONDS } from './tour';
 
 export const DISCLAIMER = 'Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product.';
 
@@ -63,7 +64,7 @@ export function AppShell(p: AppShellProps) {
             onClick={p.onTour}
             aria-pressed={p.touring}
           >
-            Demo Tour <span className="text-secondary normal-case ml-1.5">90s</span>
+            Demo Tour <span className="text-secondary normal-case ml-1.5">{Math.round(TOUR_SECONDS)}s</span>
           </button>
           <div className="hidden xl:flex items-center gap-space-sm px-space-sm py-1 bg-surface-container border border-surface-container-highest">
             <span className="font-label-sm text-label-sm uppercase text-on-surface-variant">Monitor</span>

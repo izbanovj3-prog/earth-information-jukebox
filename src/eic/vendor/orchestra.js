@@ -402,14 +402,39 @@ export function loadManifest() {
   }
   return manifestPromise;
 }
+// MERGE: a static host can answer a transient 503 or hang (seen once on GitHub Pages); without a
+// timeout and retries one bad request left a record's orchestra "loading" forever.
+const FETCH_TIMEOUT_MS = 20000;
+const FETCH_TRIES = 3;
+export async function fetchWithRetry(url, { tries = FETCH_TRIES, timeoutMs = FETCH_TIMEOUT_MS, backoffMs = 600, fetcher = fetch } = {}) {
+  let last = null;
+  for (let i = 0; i < tries; i++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+    let res = null;
+    try {
+      res = await fetcher(url, { signal: ac.signal });
+    } catch (e) {
+      last = e; // network error or timeout: retry
+    } finally {
+      clearTimeout(timer);
+    }
+    if (res) {
+      if (res.ok) return res;
+      last = new Error(url + ': ' + res.status);
+      if (res.status < 500 && res.status !== 429) throw last; // 404 and friends: retrying will not help
+    }
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, backoffMs * 2 ** i));
+  }
+  throw last;
+}
 function loadInstrument(decodeCtx, manifest, id, onBytes) {
   let p = instrumentCache.get(id);
   if (!p) {
     const ins = manifest.instruments[id];
     if (!ins) return Promise.resolve(null);
     p = Promise.all(ins.zones.map(async (z) => {
-      const res = await fetch(`${ASSET_BASE}samples/${z.file}`);
-      if (!res.ok) throw new Error(`samples/${z.file}: ${res.status}`);
+      const res = await fetchWithRetry(`${ASSET_BASE}samples/${z.file}`);
       const buf = await res.arrayBuffer();
       onBytes?.(buf.byteLength);
       return { midi: z.midi, buffer: await decodeCtx.decodeAudioData(buf) };
