@@ -6,6 +6,9 @@ import { useEffect, useRef, useState } from 'react';
 import type { EicSession, SoundMode } from '../eic/session';
 import { loadPlaylist, modeLabel, playlistUrl, type PlaylistTrack } from '../eic/playlist';
 
+/** A render that reports no progress for this long is stopped (a frame normally takes well under 30 s). */
+const STALL_MS = 90_000;
+
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const btn =
   'min-h-[48px] px-space-md inline-flex items-center justify-center font-label-md text-label-md uppercase transition-colors disabled:opacity-50 w-fit';
@@ -29,7 +32,7 @@ export function InstantDownload({ dataset, mode }: { dataset: string; mode: Soun
         Download this soundscape
       </a>
       <span className="font-label-sm text-label-sm text-secondary">
-        {modeLabel(t.mode)} · {mmss(t.seconds)} · WebM (Opus) audio, ready at once. Rendered by the same engine with every instrument on.
+        Standard mix, {modeLabel(t.mode)} · {mmss(t.seconds)} · WebM (Opus) audio, ready at once. Every instrument is on: your mixer settings are not applied to this file.
       </span>
     </div>
   );
@@ -61,14 +64,30 @@ export function MixRender({ session, ready, mutedCount }: { session: EicSession;
     abort.current = ac;
     const started = performance.now();
     setSt({ kind: 'busy', fraction: 0, started });
+    let lastProgress = Date.now();
+    let stalled = false;
+    const watchdog = setInterval(() => {
+      if (Date.now() - lastProgress > STALL_MS) {
+        stalled = true;
+        ac.abort();
+      }
+    }, 5000);
     try {
-      const r = await session.renderWav({ signal: ac.signal, onProgress: (fraction) => !ac.signal.aborted && setSt({ kind: 'busy', fraction, started }) });
+      const r = await session.renderWav({
+        signal: ac.signal,
+        onProgress: (fraction) => {
+          lastProgress = Date.now();
+          if (!ac.signal.aborted) setSt({ kind: 'busy', fraction, started });
+        },
+      });
       const label = `${r.file} (${(r.blob.size / 1e6).toFixed(1)} MB, ${Math.round(r.seconds)} s, ${modeLabel(r.mode)})`;
       setSt({ kind: 'done', href: URL.createObjectURL(r.blob), file: r.file, label, ms: performance.now() - started });
     } catch (e) {
-      if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) setSt({ kind: 'cancelled' });
+      if (stalled) setSt({ kind: 'error', message: `it made no progress for ${STALL_MS / 1000} s, so it was stopped` });
+      else if (ac.signal.aborted || (e instanceof DOMException && e.name === 'AbortError')) setSt({ kind: 'cancelled' });
       else setSt({ kind: 'error', message: e instanceof Error ? e.message : String(e) });
     } finally {
+      clearInterval(watchdog);
       if (abort.current === ac) abort.current = null;
     }
   };
@@ -92,7 +111,7 @@ export function MixRender({ session, ready, mutedCount }: { session: EicSession;
         )}
       </div>
       <span className="font-label-sm text-label-sm text-secondary">
-        WAV, {mutedCount ? `${mutedCount} mixer ${mutedCount === 1 ? 'layer' : 'layers'} off` : 'all mixer layers on'}. Takes a minute or two.
+        Applies your mixer settings ({mutedCount ? `${mutedCount} ${mutedCount === 1 ? 'layer' : 'layers'} off` : 'all layers on'}) and makes a WAV file. Takes a minute or two.
       </span>
       {st.kind === 'busy' && (
         <div className="flex items-center gap-space-sm">

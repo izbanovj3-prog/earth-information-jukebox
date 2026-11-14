@@ -184,7 +184,8 @@ test.describe('Earth Information Center records', () => {
     await waitForFrame(page);
     await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
     await page.getByRole('group', { name: 'Mixer' }).getByRole('button').first().click();
-    await expect(page.getByText('WAV, 1 mixer layer off. Takes a minute or two.')).toBeVisible();
+    await expect(page.getByText('Applies your mixer settings (1 layer off) and makes a WAV file. Takes a minute or two.')).toBeVisible();
+    await expect(page.getByText(/Standard mix, Scientific · .* your mixer settings are not applied to this file./)).toBeVisible();
     const render = page.getByRole('button', { name: 'Render with my mixer settings' });
     await render.click();
     const bar = page.getByRole('progressbar', { name: 'Rendering progress' });
@@ -210,6 +211,26 @@ test.describe('Earth Information Center records', () => {
       'Rendering failed: the browser ran out of memory. The ready-made download above still works.',
     );
     await expect(page.getByRole('link', { name: 'Download this soundscape' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Render with my mixer settings' })).toBeEnabled();
+  });
+
+  test('render with my mixer settings: a render that hangs is stopped after 90 s with a clear error, never an endless bar', async ({ page }) => {
+    await page.clock.install();
+    await page.addInitScript(() => {
+      // A render that never finishes and never reports progress.
+      OfflineAudioContext.prototype.startRendering = () => new Promise<AudioBuffer>(() => {});
+      OfflineAudioContext.prototype.suspend = () => new Promise<void>(() => {});
+    });
+    await page.goto('/?record=eic-lightning');
+    await waitForFrame(page);
+    await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
+    await page.getByRole('button', { name: 'Render with my mixer settings' }).click();
+    await expect(page.getByRole('progressbar', { name: 'Rendering progress' })).toBeVisible();
+    await page.clock.fastForward(96_000);
+    await expect(page.getByRole('alert').filter({ hasText: 'Rendering failed' })).toHaveText(
+      'Rendering failed: it made no progress for 90 s, so it was stopped. The ready-made download above still works.',
+    );
+    await expect(page.getByRole('progressbar')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Render with my mixer settings' })).toBeEnabled();
   });
 
