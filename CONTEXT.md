@@ -120,6 +120,22 @@ Five AI-generated reference screens ("Earth Jukebox Interface") landed in `desig
 - **CSP `font-src` amended to `'self' data:`.** Vite inlines small Fontsource subset files (many language subsets are under its 4 kB default threshold) as base64 `data:` URIs; the original `'self'`-only policy from the CSS-Modules build blocked them under Tailwind's larger, more subset-heavy font CSS.
 - **Fix-loop findings from the screenshot pass** (all corrected before commit): `SidePanel` was missing the `xl:w-[360px]` cap that `TrackRail` had, so it claimed 100% row width and broke the 3-column layout; the browser's UA stylesheet gives `<fieldset>` an implicit `min-width: min-content`, which defeated `overflow-x-auto` on the mobile track-selector row until `min-w-0` was added; the header overflowed at 1440px until the "Sonification engine" status text moved from `lg:` to `2xl:` and the Monitor/Volume chips moved from `sm:`/`md:` to `xl:`.
 
+### Merge with the teammate prototype (branch `merge/best-of-both`, 2026-11-14)
+
+Full comparison, measurements and the approved decisions are in `MERGE_PLAN.md`. Summary of what changed here:
+
+- **Base A, plus B's EIC records.** The teammate's engine (`analyze/engine/orchestra/datasets.js`) is vendored into `src/eic/vendor/` with `.d.ts` shims and minimal changes marked `MERGE:`. `EicSession` (`src/eic/session.ts`) is the typed, subscribable controller; the React UI reuses A's shell, rail, library, keyboard map, narrator and URL state for both collections.
+- **Default record: Night Lights 2012 → 2023 (SVS 5313)** (decision D4). GIBS records stay one click or `]` away; `[`/`]` walk EIC then GIBS.
+- **Orchestra loading (D2).** Play always starts at once in Scientific (synths, no download). If the listener prefers Orchestra (default, stored in `localStorage` as `eic.soundMode`), `instrumentsFor()` dry-runs the orchestra composer to list the instruments that record actually uses, only those are fetched (Night Lights 6.6 MB of 16.4 MB) and playback switches mid-sweep without losing its place. Sample load failure keeps Scientific playing and is announced.
+- **Only the first baked picture blocks playback**; the other frames load in the background.
+- **IDs:** both collections have an `aerosols` record, so EIC records are `eic-<id>` in the URL and DOM. Plain `?record=aerosols` still opens the GIBS record (older links keep working).
+- **EIC frame dates come from the loaded frames**, not the static list in `datasets.js` (lightning frames are sampled from video and dated by measurement). In-between dates snap to the nearest frame.
+- **Phone transport:** below `sm` the fixed bar shows only the play row and a "More controls" toggle; at 390 px the map is no longer covered (was: map bottom 562 px, bar top 547 px).
+- **CSP:** `media-src 'self'` (was `'none'`) for the coming playlist `<audio>`.
+- **Licence (D1):** Apache-2.0 for everything; the prototype's files keep their copyright notice; `NOTICE` lists them.
+- **Citation fix:** the prototype cited SVS 5669 for the aerosol frames; 5669 is a different product (GEOS-FP 2 km replay, Aug 2025). Only SVS 5552 is cited now.
+- **Not merged yet (should-do, awaiting review):** playlist view, WAV export, trend chart + table, mixer, STORY.md, Pages workflow. Live video stays local-only on the prototype branch (D7).
+
 ## Acceptance criteria
 
 - `npm install && npm run dev` works from a clean clone; `build`, `test`, `e2e` green.

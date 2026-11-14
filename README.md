@@ -2,7 +2,7 @@
 
 Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.
 
-Pick a record, press Play, and you hear a NASA satellite map of the Earth. A scan line sweeps the map from west to east. The app reads the colour of every pixel back into a physical value (degrees, percent of ice, vegetation index) and turns those values into music in your browser as you listen. You can also stop the scan and move a cursor with the arrow keys to hear one place at a time.
+Pick a record, press Play, and you hear NASA's view of the Earth. Ten records in two collections: five **Earth Information Center** visualizations by NASA's Scientific Visualization Studio (night lights, ocean currents, aerosols, lightning, air quality), which you can hear as a sampled chamber **Orchestra** or as a direct **Scientific** synth mapping, and five **NASA GIBS** data records whose colours are read back into physical values. The app opens on Night Lights 2012 → 2023. A scan line sweeps the map from west to east. The app reads the colour of every pixel back into a physical value (degrees, percent of ice, vegetation index) and turns those values into music in your browser as you listen. You can also stop the scan and move a cursor with the arrow keys to hear one place at a time.
 
 We built it for the 2026 challenge [The Earth Information Jukebox](https://www.spaceappschallenge.org/2026/challenges/the-earth-information-jukebox/) (full text in [`docs/CHALLENGE.md`](docs/CHALLENGE.md)). Our first audience is blind and low-vision listeners, so every feature works by keyboard and by ear, and a screen reader can follow along.
 
@@ -55,7 +55,21 @@ npm run e2e
 
 `npm run frames` downloads and re-verifies the bundled frames (needs network access to `gibs.earthdata.nasa.gov`). It only rewrites `public/frames/` when every frame and colormap passes.
 
-## The five records
+## The ten records
+
+### Earth Information Center (NASA SVS)
+
+| # | Record | SVS visualization | Frames |
+|---|---|---|---|
+| E1 | Night Lights 2012 → 2023 | [5313](https://svs.gsfc.nasa.gov/5313/) Change in Night Lights (EIC) | 12, one per year |
+| E2 | Sea Surface Currents & Temperature | [3912](https://svs.gsfc.nasa.gov/3912/) ECCO2 | 12, about monthly, Mar 2007 – Mar 2008 |
+| E3 | GEOS Aerosols | [5552](https://svs.gsfc.nasa.gov/5552/) GEOS-FP (not in the EIC gallery) | 10, every ~5 days, Aug – Sep 2024 |
+| E4 | Lightning seen from the ISS | [5011](https://svs.gsfc.nasa.gov/5011/) (EIC) | 12, monthly 2019 (dates measured from the video) |
+| E5 | Air Quality, fire season 2024 | [5533](https://svs.gsfc.nasa.gov/5533/) GEOS-CF (EIC) | 8, every ~9 days, Jul – Aug 2024 |
+
+Each frame is reduced to a 64 x 32 grid by reading the visualization's own colour key; values are normalised across all frames of a record so change over time stays audible. **Scientific** gives each record its own synth rules. **Orchestra** gives every colour family its own section of a CC0 sampled chamber orchestra (blue strings, green woodwinds, yellow harp, orange horns, red trumpets, violet violas, white piano and glockenspiel) with tempo, harmony, melody, bass and a data-driven groove. Play always starts at once in Scientific; when you prefer Orchestra (the default, remembered), only the instruments that record needs are downloaded (Night Lights 6.6 MB, Lightning 4.3 MB, the others 10–12 MB, instead of all 16 MB) and the orchestra takes over mid-sweep. The method and every artistic choice are explained in the teammate's [STORY.md](https://github.com/izbanovj3-prog/earth-information-jukebox/blob/feat/earth-jukebox-mvp/docs/STORY.md) (to be merged into `docs/`).
+
+### NASA GIBS data records
 
 | # | Record | NASA GIBS layer | Dates |
 |---|---|---|---|
@@ -97,6 +111,7 @@ The engine schedules notes 100 ms ahead on the AudioContext clock and moves the 
 ## Architecture
 
 ```
+src/eic/      Earth Information Center records: EicSession (typed controller), instrumentsFor (orchestra dry run), vendor/ (teammate engine)
 src/data/     GIBS URL builder and validated fetch, colormap parser, frame loader, track catalog
 src/sonify/   pure functions: sampleColumn, mapToNotes, scales, drone, frame statistics
 src/audio/    AudioEngine (the only module that makes sound), look-ahead scheduler, player
@@ -121,7 +136,9 @@ The three sides talk through one contract in `src/types.ts`: a `Frame` (RGBA pix
 - Browsers only start audio after you press a key or click, so the app never plays sound on load. Hovering the map with the mouse never starts sound on its own.
 - The app keeps up to 30 decoded frames (about 31 MB) in memory per session, because GIBS sends `Cache-Control: no-store`.
 - Nobody has tested it with a real screen reader yet; the narration and ARIA follow the specs and pass axe.
+- EIC records are pre-analysed copies of SVS frames (no live SVS fetch in the static app, because SVS allows cross-origin pixel reads for one partner site only). The prototype's live-video mode needs its local Node server and is not part of the static app (branch `feat/earth-jukebox-mvp`).
+- On a slow phone network the orchestra for a record takes a while to arrive (Night Lights: about 37 s on throttled Fast 3G); Scientific plays meanwhile.
 
 ## Credits and license
 
-Data comes from NASA GIBS; [`ATTRIBUTION.md`](ATTRIBUTION.md) lists every dataset, font and library. Code is under the [Apache License 2.0](LICENSE). The app uses no NASA logos or insignia.
+Data comes from NASA SVS and NASA GIBS; orchestral samples are VS Chamber Orchestra 2 Community Edition (CC0). [`ATTRIBUTION.md`](ATTRIBUTION.md) lists every dataset, credit line, font and library, and [`NOTICE`](NOTICE) the files that came from the teammate prototype. Code is under the [Apache License 2.0](LICENSE). The app uses no NASA logos or insignia.
