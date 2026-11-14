@@ -194,6 +194,30 @@ test.describe('Earth Information Center records', () => {
     await expectNoSeriousA11yViolations(page, 'trend chart with table open');
   });
 
+  test('mixer: layers switch off and on, activity lights move while playing; Orchestra shows colour sections', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    const mixer = page.getByRole('group', { name: 'Mixer' });
+    await expect(mixer.getByRole('button')).toHaveCount(3);
+    const lights = mixer.getByRole('button', { name: /City lights/ });
+    await expect(lights).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
+    await page.getByRole('button', { name: 'Play' }).click();
+    await expect
+      .poll(async () => mixer.locator('span.bg-primary').evaluateAll((els) => els.some((e) => parseFloat((e as HTMLElement).style.width) > 0)), { timeout: 8000 })
+      .toBe(true);
+    await lights.click();
+    await expect(lights).toHaveAttribute('aria-pressed', 'false');
+    await expect(lights).toContainText('Off');
+    await lights.click();
+    await expect(lights).toHaveAttribute('aria-pressed', 'true');
+    await expectNoSeriousA11yViolations(page, 'mixer while playing');
+    await page.getByRole('radio', { name: 'Orchestra' }).check({ force: true });
+    await expect(page.getByTestId('orchestra-status')).toHaveText('Orchestra playing.', { timeout: 20_000 });
+    await expect(mixer.getByRole('button', { name: /Yellow → harp/ })).toBeVisible();
+    await expect(mixer.getByRole('button', { name: /Double bass/ })).toBeVisible();
+  });
+
   test('every EIC record loads and is axe-clean', async ({ page }) => {
     for (const ds of EIC) {
       await page.goto(`/?record=eic-${ds.id}`);

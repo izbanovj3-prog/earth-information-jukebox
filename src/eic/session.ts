@@ -12,7 +12,8 @@ import { instrumentsFor } from './instruments';
 import { COLS, ROWS, fmtLat, fmtLon, latOfRow, loadDataset as vendorLoadDataset, lonOfCol, regionName, channelsOf, type EicFrame, type EicFrames } from './vendor/analyze';
 import { byId, DATASETS, type EicDataset } from './vendor/datasets';
 import { attachSamples, composerFor, describeAt, encodeWav, Engine, Player, probeCell, renderOffline, setMode, setSweep } from './vendor/engine';
-import { loadManifest, loadSamples as vendorLoadSamples, orchestraFor, sweepForBpm, type SampleBank, type SampleManifest } from './vendor/orchestra';
+import { FAMILIES, FOUNDATION, familiesUsed, loadManifest, loadSamples as vendorLoadSamples, orchestraFor, sweepForBpm, type SampleBank, type SampleManifest } from './vendor/orchestra';
+import type { EicLayer } from './vendor/datasets';
 
 export type SoundMode = 'science' | 'orchestra';
 export type OrchestraStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -31,6 +32,8 @@ export interface EicState {
   orchestra: { status: OrchestraStatus; done: number; total: number; bytes: number; totalBytes: number; error: string | null };
   /** Short "what you hear now" line, updated every few steps while playing. */
   hearing: string;
+  /** Mixer layers switched off for this record in the sounding mode. */
+  mutedLayers: string[];
 }
 
 export interface EicDeps {
@@ -162,6 +165,8 @@ export class EicSession {
   private volume = 0.8;
   private muted = false;
   private timers: ReturnType<typeof setTimeout>[] = [];
+  /** Muted mixer layers per `${mode}:${record}`. */
+  private mutes = new Map<string, Set<string>>();
 
   /** Spoken narration hook: 'step' every bar while playing, 'frame' on a new frame, 'event' for play/mode messages. */
   onNarrate: ((text: string, kind: NarrationKind) => void) | null = null;
@@ -183,6 +188,7 @@ export class EicSession {
       activeMode: 'science',
       orchestra: { status: 'idle', done: 0, total: 0, bytes: 0, totalBytes: 0, error: null },
       hearing: 'Nothing yet. Press Play to start the sweep, or explore the map with the arrow keys.',
+      mutedLayers: [],
     };
   }
 
@@ -193,7 +199,12 @@ export class EicSession {
     return () => this.listeners.delete(fn);
   };
   private set(patch: Partial<EicState>) {
+    const remute = ('activeMode' in patch && patch.activeMode !== this.state.activeMode) || ('dsId' in patch && patch.dsId !== this.state.dsId);
     this.state = { ...this.state, ...patch };
+    if (remute) {
+      this.state = { ...this.state, mutedLayers: [...this.muteSet()] };
+      this.applyMutes();
+    }
     this.listeners.forEach((l) => l());
   }
 
@@ -264,6 +275,7 @@ export class EicSession {
       this.player.onStep = (k) => this.onStep(k);
       this.applyVolume();
       if (Object.keys(this.bank).length) attachSamples(this.engine, this.bank);
+      this.applyMutes();
       if (this.frames) this.player.load(this.dataset, this.frames);
     }
     if (this.ctx.state === 'suspended') void this.ctx.resume();
@@ -497,8 +509,45 @@ export class EicSession {
     const ds = this.dataset;
     const mode: SoundMode = this.state.activeMode === 'orchestra' && this.orchestraReadyFor(ds.id) ? 'orchestra' : 'science';
     const sweep = mode === 'orchestra' ? sweepForBpm(orchestraFor(ds.id).bpm) : SCIENCE_SWEEP;
-    const buf = await renderOffline(ds, this.frames, { sweep, mode, samples: mode === 'orchestra' ? this.bank : null, muted: [] });
+    const buf = await renderOffline(ds, this.frames, { sweep, mode, samples: mode === 'orchestra' ? this.bank : null, muted: [...this.muteSet(mode)] });
     return { blob: encodeWav(buf), seconds: buf.duration, mode, file: `earth-jukebox-${ds.id}-${mode}.wav` };
+  }
+
+  // ----- mixer -----
+  private muteSet(mode: SoundMode = this.state.activeMode): Set<string> {
+    const key = `${mode}:${this.state.dsId}`;
+    let s = this.mutes.get(key);
+    if (!s) this.mutes.set(key, (s = new Set()));
+    return s;
+  }
+  private applyMutes() {
+    const E = this.engine;
+    if (!E) return;
+    const want = this.muteSet();
+    for (const id of [...E.muted]) if (!want.has(id)) E.setMuted(id, false);
+    for (const id of want) E.setMuted(id, true);
+  }
+  /** The instruments of the mixer for the sounding mode: colour sections + foundation (Orchestra) or the record's synth layers. */
+  mixerLayers(): EicLayer[] {
+    if (this.state.activeMode === 'orchestra' && this.frames) {
+      return [...familiesUsed(this.frames, this.dataset).map((id) => ({ id, label: FAMILIES[id]!.label, color: FAMILIES[id]!.color })), ...FOUNDATION];
+    }
+    return this.dataset.layers;
+  }
+  setLayerMuted(id: string, muted: boolean): void {
+    const s = this.muteSet();
+    if (muted) s.add(id);
+    else s.delete(id);
+    this.engine?.setMuted(id, muted);
+    this.set({ mutedLayers: [...s] });
+  }
+  /** Voices started per layer since the last call (for the mixer's activity lights). */
+  takeActivity(): Record<string, number> {
+    const E = this.engine;
+    if (!E) return {};
+    const a = E.activity;
+    E.activity = {};
+    return a;
   }
 
   get audioStarted(): boolean {

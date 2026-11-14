@@ -13,6 +13,7 @@ export class Engine {
   ctx: BaseAudioContext;
   samples?: SampleBank;
   activity: Record<string, number>;
+  muted: Set<string>;
   analyser: AnalyserNode | null;
   setVolume(v: number): void;
   setMuted(layer: string, muted: boolean): void;

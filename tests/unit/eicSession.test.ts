@@ -125,6 +125,28 @@ describe('EicSession', () => {
     expect(audio.created()).toBe(1);
   });
 
+  it('mixer: mutes are kept per mode and re-applied to the engine when the mode switches', async () => {
+    const { session, audio, samples } = setup();
+    active = session;
+    await session.select('nightlights');
+    expect(session.mixerLayers().map((l) => l.id)).toEqual(['lights', 'growth', 'glow']);
+    session.setLayerMuted('lights', true);
+    expect(session.getState().mutedLayers).toEqual(['lights']);
+    await session.play();
+    const engineMuted = () => [...(session as unknown as { engine: { muted: Set<string> } }).engine.muted];
+    expect(engineMuted()).toEqual(['lights']);
+    await vi.waitFor(() => expect(samples.calls).toHaveLength(1));
+    samples.resolve(samples.bankFor(samples.calls[0]!, audio.ctx));
+    await vi.waitFor(() => expect(session.getState().activeMode).toBe('orchestra'));
+    // Orchestra has its own layers and its own (empty) mute set.
+    expect(session.mixerLayers().map((l) => l.id)).toEqual(expect.arrayContaining(['yellow', 'melody', 'bass', 'drums']));
+    expect(session.getState().mutedLayers).toEqual([]);
+    expect(engineMuted()).toEqual([]);
+    session.setPreferredMode('science');
+    expect(session.getState().mutedLayers).toEqual(['lights']);
+    expect(engineMuted()).toEqual(['lights']);
+  });
+
   it('snaps a deep-link date to the nearest frame', async () => {
     const { session } = setup();
     await session.select('lightning', '2019-07-02');

@@ -200,6 +200,80 @@ function ExportWav({ session, ready }: { session: EicSession; ready: boolean }) 
   );
 }
 
+/**
+ * Mixer: each visual layer is its own instrument (Scientific) or each colour its own orchestra
+ * section (Orchestra). Toggle buttons with aria-pressed; the label carries identity, the swatch is
+ * decorative. Activity lights follow the voices the engine starts per layer.
+ */
+function Mixer({ session, state }: { session: EicSession; state: EicState }) {
+  const layers = state.status === 'ready' ? session.mixerLayers() : [];
+  const bars = useRef(new Map<string, HTMLSpanElement>());
+  useEffect(() => {
+    if (!state.playing) return;
+    const els = bars.current;
+    const level = new Map<string, number>();
+    let raf = 0;
+    const loop = () => {
+      const act = session.takeActivity();
+      for (const [id, el] of els) {
+        const v = Math.max(Math.min(1, (act[id] ?? 0) * 0.12), (level.get(id) ?? 0) * 0.9);
+        level.set(id, v);
+        el.style.width = `${Math.round(v * 100)}%`;
+      }
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => {
+      cancelAnimationFrame(raf);
+      for (const el of els.values()) el.style.width = '0%';
+    };
+  }, [state.playing, session]);
+  if (!layers.length) return null;
+  const muted = new Set(state.mutedLayers);
+  return (
+    <section aria-labelledby="eic-mix-h" className="flex flex-col gap-space-xs">
+      <h3 id="eic-mix-h" className="font-label-sm text-label-sm uppercase text-primary m-0">
+        Mixer
+      </h3>
+      <p className="m-0 font-label-sm text-label-sm text-secondary">
+        {state.activeMode === 'orchestra'
+          ? 'One colour, one section of the orchestra. Switch sections off to hear each colour on its own.'
+          : 'Each visual layer is its own instrument. Switch layers off to hear them separately.'}
+      </p>
+      <div role="group" aria-labelledby="eic-mix-h" className="flex flex-col gap-1">
+        {layers.map((l) => {
+          const on = !muted.has(l.id);
+          return (
+            <button
+              key={l.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => session.setLayerMuted(l.id, on)}
+              className={`min-h-[44px] px-space-sm flex items-center gap-space-sm text-left font-label-md text-label-md transition-colors ${
+                on ? 'bg-surface-container text-on-surface' : 'bg-surface-container-lowest text-outline line-through'
+              }`}
+            >
+              <span className="w-3 h-3 shrink-0" style={{ background: l.color, opacity: on ? 1 : 0.35 }} aria-hidden="true" />
+              <span className="flex-1 min-w-0">{l.label}</span>
+              <span className="font-label-sm text-label-sm uppercase no-underline">{on ? 'On' : 'Off'}</span>
+              <span className="w-12 h-1 bg-surface-container-highest relative overflow-hidden" aria-hidden="true">
+                <span
+                  className="absolute inset-y-0 left-0 bg-primary"
+                  style={{ width: '0%' }}
+                  ref={(el) => {
+                    if (el) bars.current.set(l.id, el);
+                    else bars.current.delete(l.id);
+                  }}
+                />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function ModeSwitch({ state, onMode }: { state: EicState; onMode: (m: SoundMode) => void }) {
   const id = useId();
   const o = state.orchestra;
@@ -419,6 +493,7 @@ export const EicPlayerView = forwardRef<HTMLDivElement, Props>(function EicPlaye
             <p className="font-label-sm text-label-sm text-secondary m-0">{p.dataset.timeSpan}</p>
           </section>
           <ModeSwitch state={p.state} onMode={p.onMode} />
+          <Mixer session={p.session} state={p.state} />
           <section aria-labelledby="eic-hearing-h">
             <h3 id="eic-hearing-h" className="font-label-sm text-label-sm uppercase text-primary mb-1.5">
               You Are Hearing
