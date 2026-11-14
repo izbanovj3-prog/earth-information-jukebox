@@ -42,6 +42,16 @@ export class Player {
 export function renderOffline(
   ds: EicDataset,
   frames: EicFrames,
-  opts?: { sweep?: number; sampleRate?: number; muted?: string[]; mode?: 'science' | 'orchestra'; samples?: SampleBank | null },
+  opts?: {
+    sweep?: number;
+    sampleRate?: number;
+    muted?: string[];
+    mode?: 'science' | 'orchestra';
+    samples?: SampleBank | null;
+    /** 0..1, once per scheduled frame and at the end. */
+    onProgress?: ((fraction: number) => void) | null;
+    /** Aborting stops the render and rejects with an AbortError. */
+    signal?: AbortSignal | null;
+  },
 ): Promise<AudioBuffer>;
 export function encodeWav(buf: AudioBuffer): Blob;

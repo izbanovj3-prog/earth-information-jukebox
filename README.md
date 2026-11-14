@@ -113,7 +113,7 @@ The engine schedules notes 100 ms ahead on the AudioContext clock and moves the 
 ## Screens
 
 - **Player** (`AppShell` + `PlayerView`): the main view. A record rail, the map with its scan line, the time scrubber, and a side panel with the live telemetry readout, per-band meters and a how-to-listen summary. The same components reflow into a single column with a fixed bottom transport bar on narrow screens; there is no separate mobile build.
-- **Earth Information Center player** (`EicPlayerView`): the same rail and transport for the five SVS records, with the Orchestra/Scientific switch and loading progress, a mixer with activity lights, a trend chart with a data table, the record's two playlist tracks and Export WAV. The library adds a curated playlist of all ten pre-rendered soundscapes.
+- **Earth Information Center player** (`EicPlayerView`): the same rail and transport for the five SVS records, with the Orchestra/Scientific switch and loading progress, a mixer with activity lights, a trend chart with a data table, "Download this soundscape" (the ready-made WebM for the record and chosen mode, instant), "Render with my mixer settings" (offline WAV re-render with the mixer mutes, progress bar, Cancel and a clear error), and the record's two playlist tracks to listen to. The library adds a curated playlist of all ten pre-rendered soundscapes.
 - **Track Library** (`LibraryView`): a full-page, filterable list of all ten records, reachable from the player's "Browse all records" link, with an inline play control per row.
 - **How to Listen** (`HowToListenSheet`): a right-docked dialog (opened from the header or `?`) with what the sound means, the keyboard shortcuts, and sources and limits for the current record.
 

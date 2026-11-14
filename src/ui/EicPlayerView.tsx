@@ -5,6 +5,7 @@ import type { Track } from '../data/catalog';
 import { EIC_COLS, EIC_ROWS, fmtVal, frameAlt, frameDescription, hearingFor, metricValue, shortLabel, type EicSession, type EicState, type SoundMode } from '../eic/session';
 import type { EicDataset } from '../eic/vendor/datasets';
 import { MuteIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, VolumeIcon } from './icons';
+import { InstantDownload, MixRender } from './ExportControls';
 import { Playlist } from './Playlist';
 import { TimeScrubber } from './TimeScrubber';
 import { TrendChart } from './TrendChart';
@@ -153,52 +154,6 @@ const EicStage = forwardRef<HTMLDivElement, Pick<Props, 'session' | 'state' | 'd
     );
   },
 );
-
-/** Render the current record offline (same engine, mode that is sounding now) and offer the WAV. */
-function ExportWav({ session, ready }: { session: EicSession; ready: boolean }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState('');
-  const [link, setLink] = useState<{ href: string; file: string; label: string } | null>(null);
-  useEffect(() => () => {
-    if (link) URL.revokeObjectURL(link.href);
-  }, [link]);
-  const run = async () => {
-    setBusy(true);
-    setLink(null);
-    setMsg('Rendering the whole record… this can take a minute.');
-    const t0 = performance.now();
-    try {
-      const r = await session.renderWav();
-      const label = `${r.file} (${(r.blob.size / 1e6).toFixed(1)} MB, ${Math.round(r.seconds)} s, ${r.mode === 'orchestra' ? 'Orchestra' : 'Scientific'})`;
-      setLink({ href: URL.createObjectURL(r.blob), file: r.file, label });
-      setMsg(`Done in ${((performance.now() - t0) / 1000).toFixed(0)} s.`);
-    } catch (e) {
-      setMsg(`Rendering failed: ${e instanceof Error ? e.message : String(e)}.`);
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <div className="flex flex-col gap-space-xs">
-      <button
-        type="button"
-        disabled={!ready || busy}
-        onClick={() => void run()}
-        className="min-h-[48px] px-space-sm bg-surface-container hover:bg-surface-container-high text-on-surface font-label-md text-label-md uppercase disabled:opacity-50 w-fit"
-      >
-        Export WAV
-      </button>
-      <p className="m-0 font-label-sm text-label-sm text-secondary" aria-live="polite" data-testid="wav-status">
-        {msg}{' '}
-        {link && (
-          <a className="text-primary underline" href={link.href} download={link.file}>
-            Download {link.label}
-          </a>
-        )}
-      </p>
-    </div>
-  );
-}
 
 /**
  * Mixer: each visual layer is its own instrument (Scientific) or each colour its own orchestra
@@ -517,8 +472,9 @@ export const EicPlayerView = forwardRef<HTMLDivElement, Props>(function EicPlaye
               Take it with you
             </h3>
             <p className="m-0 font-body-md text-body-md text-secondary">The whole record, pre-rendered by the same engine, in both modes.</p>
+            <InstantDownload dataset={p.dataset.id} mode={p.state.preferredMode} />
+            <MixRender session={p.session} ready={p.state.status === 'ready'} mutedCount={p.state.mutedLayers.length} />
             <Playlist dataset={p.dataset.id} onPlay={p.onExternalAudio} headingId="eic-take-h" />
-            <ExportWav session={p.session} ready={p.state.status === 'ready'} />
           </section>
           <section aria-labelledby="eic-src-h">
             <h3 id="eic-src-h" className="font-label-sm text-label-sm uppercase text-primary mb-1.5">
