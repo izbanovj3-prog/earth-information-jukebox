@@ -185,3 +185,32 @@ NASA GIBS (ESDIS) and its 5 layer IDs (already in ATTRIBUTION.md) · NASA SVS 53
 - A's `main` is 5 commits ahead of `origin/main` (the whole Tailwind redesign is unpushed).
 - Untracked in A from the previous session: `_measure.mjs`, `_test-b-features.mjs`, `_test-b-gesture.mjs`. They are throwaway probes; delete them or move them to `scripts/` when we start.
 - Still running from the previous session: B's server on :8000 and two old `vite preview` processes (:4322, :4333).
+
+---
+
+## 7. Progress: must-do items (branch `merge/best-of-both`, stopped for review)
+
+| Item | Status | Evidence |
+|---|---|---|
+| Fix the 95 s orchestra load | Done (D2) | Play is instant in Scientific; only the instruments a record needs are fetched; Orchestra takes over mid-sweep; choice remembered |
+| CSP for `<audio>` | Done | `media-src 'self'`; e2e checks the built meta tag |
+| Playback bar covering the map at 390 px | Done | Compact phone transport + "More controls"; e2e asserts map bottom ≤ bar top on both players (failed on the old bar: 562 > 547) |
+| NASA-like favicon | Done | The B favicon was not carried over; e2e guards against `#0b3d91` and checks the project icon |
+| Aerosols citation | Done | SVS 5669 removed from the credit; ATTRIBUTION explains why |
+| P0-1/2/3 EIC records in one interface | Done | Rail, library, URL (`eic-<id>`), keyboard, explore, narration, How-to-Listen sheet |
+| P0-7 ATTRIBUTION, NOTICE, README, CONTEXT | Done | SVS credit lines and underlying data, CC0 samples, teammate code notice |
+
+**Merged build, plain static host, 390 px, Fast 3G (same harness as section 1):**
+
+| Metric | B (before) | Merged, opens on EIC Night Lights | Merged, GIBS Fever Pitch |
+|---|---|---|---|
+| Bytes before first click | 1,137 KB | 704 KB | 663 KB |
+| Play usable | 10.0 s | 8.7 s | 7.7 s |
+| AudioContext before click | 0 | 0 | 0 |
+| **First sound after Play** | **94.7 s** | **0.38 s** (Scientific) | 0.71 s |
+| Orchestra takes over | 94.7 s | 38.7 s after Play, while sound already plays | n/a |
+| Total transferred | 17.2 MB | 7.9 MB (6.6 MB of it the Night Lights instruments) | 663 KB |
+| Horizontal scroll / console errors | no / 0 | no / 0 | no / 0 |
+
+Tests at the last commit: 100 unit (Vitest), 33 e2e (Playwright + axe), typecheck and lint clean.
+Not done yet: should-do items (playlist, WAV export, trend chart + table, mixer, STORY.md, Pages workflow). Optional speed-up not done: Opus-encoded samples would cut the orchestra download roughly 8x, but need a WAV fallback for Safari and a check of loop points.
