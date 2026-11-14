@@ -214,3 +214,17 @@ NASA GIBS (ESDIS) and its 5 layer IDs (already in ATTRIBUTION.md) · NASA SVS 53
 
 Tests at the last commit: 100 unit (Vitest), 33 e2e (Playwright + axe), typecheck and lint clean.
 Not done yet: should-do items (playlist, WAV export, trend chart + table, mixer, STORY.md, Pages workflow). Optional speed-up not done: Opus-encoded samples would cut the orchestra download roughly 8x, but need a WAV fallback for Safari and a check of loop points.
+
+## 8. Progress: should-do items (same branch)
+
+| Item | Status |
+|---|---|
+| P1-1 Playlist + WAV export | Done. 10 Opus/WebM tracks (14 MB, `preload="none"`, nothing downloads until asked); record's two tracks + Export WAV in the EIC panel, full list in the library; a playlist track pauses the jukebox. Export of Air Quality (Scientific, 64 s) takes about 50 s in headless Chromium. |
+| P1-2 Trend chart + data table | Done for EIC records (single series, validated colour, tooltip, click to jump, text summary, table). GIBS records keep their baseline comparison in the frame description: their frames load lazily, so a full trend would force all frames to download. |
+| P1-3 Mixer | Done. Per layer / colour section, activity lights, mutes per record and mode, honoured by WAV export. |
+| P1-4 Tests | 102 unit, 37 e2e (was 87 / 21 before the merge). |
+| P1-5 STORY.md + demo | Done. `docs/STORY.md`; tour opens on Night Lights 2012 → 2023 and Lightning, then GIBS (98 s); DEMO.md script and 200-word summary updated. |
+| P1-6 Pages workflow | Done, **main only**; lint, typecheck, unit, e2e, build, deploy. Not run yet (no push to main). |
+| P2 | Not started: light theme, live video (local-only), orchestra for GIBS records. |
+
+Fast 3G at 390 px after these items (EIC landing): 723 KB before the click, first sound 0.73 s after Play, orchestra 39 s after Play, 7.9 MB total, no console errors.
