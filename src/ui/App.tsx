@@ -50,8 +50,9 @@ export function App() {
     return { track: t, frame: Math.max(0, d) };
   });
   const [trackIndex, setTrackIndex] = useState(initial.track);
+  const [frameIndex, setFrameIndex] = useState(initial.frame);
   const track = TRACKS[trackIndex]!;
-  const data = useTrackFrames(track);
+  const data = useTrackFrames(track, frameIndex);
   const [manifest, setManifest] = useState<Manifest | null>(null);
 
   // Created once; the AudioContext itself is only created later, on a user gesture.
@@ -59,7 +60,6 @@ export function App() {
 
   const [playing, setPlaying] = useState(false);
   const [mode, setMode] = useState<'scan' | 'explore'>('scan');
-  const [frameIndex, setFrameIndex] = useState(0);
   const [scan, setScan] = useState(0);
   const [hearing, setHearing] = useState('Nothing yet. Press Play (or Space) to start the scan, or E to explore the map.');
   const [cursor, setCursor] = useState({ x: 360, y: 90 });
@@ -116,24 +116,15 @@ export function App() {
   }, []);
 
   // Wire data into the player. Reset to the first frame when the record changes.
-  // A pending target frame for the next record (from ?date= or the demo tour); otherwise records start at frame 0.
+  // Wire frames into the player; on a new record, start the player at the chosen frame.
   const lastTrack = useRef<string | null>(null);
-  const pendingStart = useRef<{ trackId: string; frame: number } | null>({
-    trackId: TRACKS[initial.track]!.id,
-    frame: initial.frame,
-  });
   useEffect(() => {
     player.setFrames(data.frames);
     if (lastTrack.current !== track.id && data.frames.length === track.dates.length) {
-      const p = pendingStart.current;
-      const start = p && p.trackId === track.id ? p.frame : 0;
-      pendingStart.current = null;
       lastTrack.current = track.id;
-      player.seekFrame(start);
-      setFrameIndex(start);
-      setScan(0);
+      player.seekFrame(frameIndex);
     }
-  }, [data.frames, track, player]);
+  }, [data.frames, track, player, frameIndex]);
 
   // Reflect the current record and date in the URL (no history spam).
   useEffect(() => {
@@ -250,9 +241,12 @@ export function App() {
     [player, track, dateLabels, urgent],
   );
 
-  const changeTrack = useCallback((i: number) => {
+  /** Switch record; it starts at `frame` (default: its first date). */
+  const changeTrack = useCallback((i: number, frame = 0) => {
     const n = TRACKS.length;
     setTrackIndex(((i % n) + n) % n);
+    setFrameIndex(frame);
+    setScan(0);
   }, []);
 
   /** Go to a record and a date (used by the demo tour). */
@@ -266,8 +260,7 @@ export function App() {
         setFrameIndex(fi);
         setScan(0);
       } else {
-        pendingStart.current = { trackId, frame: fi };
-        changeTrack(ti);
+        changeTrack(ti, fi);
       }
     },
     [changeTrack, player],
@@ -448,7 +441,8 @@ export function App() {
           )}
           {audioError && (
             <p className={styles.error} role="alert">
-              Sound could not start: {audioError}
+              Sound could not start ({audioError}). Press Play again; if it stays silent, check that this browser tab is not muted
+              and that your device volume is up.
             </p>
           )}
           <Screen

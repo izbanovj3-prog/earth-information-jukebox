@@ -93,6 +93,9 @@ npm run frames     # re-download bundled GIBS frames (needs network)
 - **HUD outside the image**: date/source chips sit in the bezel, not over data.
 - **URL state**: `?record=<id>&date=<YYYY-MM-DD>` for shareable views.
 - **Node scripts** use `NODE_USE_ENV_PROXY=1` so `fetch` honours the sandbox proxy.
+- **Lazy frames + session cache** (web-performance-optimization): load the frame in focus, then 2 ahead for the time-lapse; decoded frames live in an in-memory LRU (30 frames, ~31 MB) because GIBS WMS sends `Cache-Control: no-store`. Startup GIBS traffic fell from 12 requests / 994 kB to 3 / 248 kB; switching records away and back fell from 22 requests to 3. LCP 276 ms, CLS 0.027 (headless Chromium, local preview). No code splitting (single screen; React is most of the 69 kB gzip bundle).
+- **Demo tour** is pure data (`src/ui/tour.ts`); it turns the time-lapse off where the narration names a date, and any shortcut hands control back.
+- **Accepted deviation**: the one-shot CRT power-on animates `clip-path`/`filter` (disabled under reduced motion).
 - **Dev-only audit**: 7 moderate advisories in the typescript-eslint toolchain (lint only, not shipped).
 
 ## Acceptance criteria

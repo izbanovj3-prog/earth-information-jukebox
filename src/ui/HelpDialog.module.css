@@ -7,6 +7,7 @@
   background: var(--space-1);
   color: var(--ink);
   box-shadow: var(--glow);
+  overscroll-behavior: contain;
 }
 .dialog::backdrop {
   background: rgb(3 5 12 / 0.78);

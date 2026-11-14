@@ -109,6 +109,16 @@ select {
   color: inherit;
 }
 
+button,
+a,
+input,
+select,
+summary,
+label {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgb(255 181 71 / 0.25);
+}
+
 :focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
