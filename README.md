@@ -1,84 +1,105 @@
 # Earth Information Jukebox
 
-> Hear the planet change: an interactive jukebox that pairs NASA Earth Information Center visualizations with real-time sonifications — so Earth science can be seen *and* heard.
+Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.
 
-Project for the [NASA International Space Apps Challenge](https://www.spaceappschallenge.org/).
+Pick a record, press Play, and you hear a NASA satellite map of the Earth. A scan line sweeps the map from west to east. The app reads the colour of every pixel back into a physical value (degrees, percent of ice, vegetation index) and turns those values into music in your browser as you listen. You can also stop the scan and move a cursor with the arrow keys to hear one place at a time.
 
-## Challenge
+We built it for the 2026 challenge [The Earth Information Jukebox](https://www.spaceappschallenge.org/2026/challenges/the-earth-information-jukebox/) (full text in [`docs/CHALLENGE.md`](docs/CHALLENGE.md)). Our first audience is blind and low-vision listeners, so every feature works by keyboard and by ear, and a screen reader can follow along.
 
-- **Challenge title:** Earth Information Jukebox
-- **Challenge link:** [The Earth Information Jukebox (2026)](https://www.spaceappschallenge.org/2026/challenges/the-earth-information-jukebox/)
-- **Full challenge text:** [`docs/CHALLENGE.md`](docs/CHALLENGE.md)
-- **Team name:** _TODO_
-- **Location / Virtual:** _TODO_
+## Run it
 
-## Problem
-
-NASA's Earth Information Center (EIC) visualizations show how our planet is changing, but they are almost purely visual. That excludes blind and low-vision users and limits how the public can explore complex Earth science. Sonification — turning data into non-speech sound — can make it accessible, multi-sensory and emotionally engaging.
-
-## Our Solution
-
-_Draft plan — update as the idea is finalized._
-
-An **Earth Jukebox**: the user picks an EIC visualization, and we extract its frames, analyze them (color, brightness, shapes, pixel density) and generate a soundscape that evolves with the animation.
-
-- **Frame analysis:** extract frames from each EIC visualization; compute color/brightness/density features per frame and per region.
-- **Musical mapping:** map features to pitch, rhythm, tempo, volume and instrumentation using musical scales and harmonies, so the output is pleasant rather than noise.
-- **Playback:** audio is synthesized in real time and synced to the visual.
-- **Accessibility first:** keyboard and screen-reader support, rich text descriptions of each visualization and what the sound represents.
-- **Story:** documentation of why each mapping was chosen (e.g. warming = rising pitch).
-
-## NASA Data & Resources Used
-
-| Dataset / API | Source | How we use it |
-|---|---|---|
-| NASA Earth Information Center visualizations | https://earth.gov/ _(verify against the Resources tab)_ | Source frames for sonification |
-| _Resources tab of the challenge page_ | _link_ | _TODO_ |
-
-## Tech Stack
-
-_Proposed — not final:_
-
-- Web app (TypeScript) so it runs in any browser, no install
-- Web Audio API / Tone.js for real-time synthesis
-- Canvas for frame analysis; ffmpeg/Python (OpenCV, NumPy) for offline frame extraction
-- Static hosting (GitHub Pages / Vercel)
-
-## Getting Started
+You need Node.js 22 or newer.
 
 ```bash
-git clone <repo-url>
-cd nasa-space-apps
-# install dependencies and run — TODO
+npm install
 ```
 
-## Repository Structure
-
-```
-src/          application source code
-data/raw/     original datasets (not committed if large)
-data/processed/  cleaned / derived data
-notebooks/    exploration and analysis notebooks
-docs/         presentation, notes, architecture
-assets/       images, logos, demo media
+```bash
+npm run dev
 ```
 
-## Demo
+Open the URL Vite prints. The app needs no API keys. It requests images from NASA GIBS and falls back to bundled copies of the same images if GIBS is unreachable.
 
-- Live demo: _TODO_
-- Video: _TODO_
-- Presentation: see [`docs/`](docs/)
+## Test it
 
-## Team
+```bash
+npm run lint
+```
 
-| Name | Role | Contact |
-|---|---|---|
-| _TODO_ | _TODO_ | _TODO_ |
+```bash
+npm run typecheck
+```
 
-## Acknowledgements
+```bash
+npm test
+```
 
-Built with open data and resources provided by NASA and its partner space agencies.
+```bash
+npm run e2e
+```
 
-## License
+`npm test` runs 74 Vitest unit tests (colormap parsing, value recovery, sampling, note mapping, the scheduler on a fake AudioContext, narration text, keyboard map, demo tour). `npm run e2e` builds the app and runs 13 Playwright tests in Chromium, with axe accessibility scans on every record and dialog. The e2e suite serves GIBS requests from the bundled frames, so it runs offline.
 
-[MIT](LICENSE)
+`npm run frames` downloads and re-verifies the bundled frames (needs network access to `gibs.earthdata.nasa.gov`).
+
+## The five records
+
+| # | Record | NASA GIBS layer | Dates |
+|---|---|---|---|
+| A1 | Fever Pitch | MERRA-2 2-metre air temperature, monthly | July 1980 to July 2024, every 4 years |
+| A2 | Thin Ice | GHRSST MUR25 sea ice concentration | 15 September, 2007 to 2025 |
+| A3 | Ocean Fever | GHRSST MUR25 sea surface temperature | 15 August, 2003 to 2025, every 2 years |
+| A4 | Green Pulse | MODIS Terra vegetation index (NDVI), monthly | January to December 2024 |
+| A5 | Hazy Skies | MERRA-2 aerosol optical thickness, monthly | January to December 2024 |
+
+We picked each layer from the GIBS capabilities document and then requested every frame for real: HTTP 200, a PNG of 720 x 360 pixels, `Access-Control-Allow-Origin: *`, and more than 1% data pixels. 60 of 60 frames passed. Every pixel colour in those frames appears as an entry in the layer's GIBS colormap, so the app recovers the value behind a colour without guessing.
+
+## How you hear the data
+
+| What you hear | What it means |
+|---|---|
+| Pitch | The value. Higher pitch means warmer, more ice, greener or hazier, depending on the record. Notes snap to a scale; pick "Chromatic" for the closest match to the data. |
+| Left to right ear | West to east. Stereo pan follows the scan line. |
+| Three voices | Three latitude bands: North (30 to 90°N) plays a glassy chime, the Tropics a soft reed, the South (30 to 90°S) a plucked string, one after the other at each step. |
+| Silence | No data at that place, for example land on an ocean layer. |
+| Bell | A pixel in that band reaches the extreme top of the scale (for example air at 37 °C or hotter). |
+| Low drone | The global average compared with the first frame of the record. It rises when the average goes up. We exaggerate it on purpose and say so in the app. |
+
+The engine schedules notes 100 ms ahead on the AudioContext clock and moves the scan line from the same clock, so the picture and the sound stay in step. Time-lapse mode moves to the next date after each sweep and crossfades both the image and the values.
+
+## Accessibility
+
+- Keyboard: Space plays or pauses, arrow keys explore (Shift jumps 10x), `[` and `]` switch records, `,` and `.` step through time, D reads a full description of the frame, M mutes, `?` opens help. Shortcuts never take keys away from a focused button, slider or menu.
+- Screen readers: a polite live region tells you what you hear every few seconds ("40°W. North: warm, rising. Tropics: very warm, steady. South: no data."). You can switch narration to "Changes only" or off.
+- Each frame has a text description with the area-weighted average, the change since the first frame, the highest and lowest points with coordinates, and each band.
+- No colour carries meaning alone. The UI keeps 4.5:1 text contrast, respects `prefers-reduced-motion`, and works from 360 px wide.
+- axe reports zero serious or critical issues on every view the e2e suite covers. Nobody has tested the app with NVDA, JAWS or VoiceOver yet.
+
+## Architecture
+
+```
+src/data/     GIBS URL builder and validated fetch, colormap parser, frame loader, track catalog
+src/sonify/   pure functions: sampleColumn, mapToNotes, scales, drone, frame statistics
+src/audio/    AudioEngine (the only module that makes sound), look-ahead scheduler, player
+src/a11y/     narration text, keyboard map
+src/ui/       React components, demo tour script
+scripts/      data spike and frame download (Node)
+tests/        unit (Vitest) and e2e (Playwright + axe)
+```
+
+The three sides talk through one contract in `src/types.ts`: a `Frame` (RGBA pixels plus legend and provenance), `sampleColumn(frame, x, bands)` returns a `ColumnSample`, `mapToNotes(sample, mapping)` returns `NoteEvent[]`, and `AudioEngine.schedule(notes, time)` plays them. Stack: Vite, React 18, TypeScript in strict mode, CSS Modules, the Web Audio API with no audio library.
+
+[`CONTEXT.md`](CONTEXT.md) records every design decision and [`PLAN.md`](PLAN.md) the build steps.
+
+## Limitations
+
+- The sound interprets an image. The app reads values back from a visualization at 0.5° resolution and averages them over wide latitude bands. Treat it as a way to explore, and go to the source datasets for measurements.
+- Two records use one day per year (sea ice, sea surface temperature). Single days vary a lot from year to year, so two neighbouring frames tell you little about a trend.
+- We dropped the 2003 and 2005 sea ice frames: their data coverage differs a lot from later years, which points to a change in the product.
+- The GIBS colour scales are rainbow-like. We keep them because the legend has to describe the source image.
+- The map uses an equirectangular projection, which stretches the poles. The text statistics weight each pixel by area to correct for this.
+- Browsers only start audio after you press a key or click, so the app never plays sound on load.
+
+## Credits and license
+
+Data comes from NASA GIBS; [`ATTRIBUTION.md`](ATTRIBUTION.md) lists every dataset, font and library. Code is under the [Apache License 2.0](LICENSE). The app uses no NASA logos or insignia.

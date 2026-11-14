@@ -22,11 +22,7 @@ node_modules/
 dist/
 build/
 
-# Large data (keep folders via .gitkeep)
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# Large raw data (bundled frames live in public/frames and ARE committed)
 *.nc
 *.hdf
 *.hdf5
