@@ -7,7 +7,7 @@ import { Screen } from './Screen';
 import { SidePanel, type LiveBand } from './SidePanel';
 import { TimeScrubber } from './TimeScrubber';
 import { Transport, type NarrationMode } from './Transport';
-import { TrackRail } from './TrackRail';
+import { TrackRail, type EicRecord } from './TrackRail';
 
 interface Props {
   tracks: Track[];
@@ -15,6 +15,8 @@ interface Props {
   track: Track;
   onSelectTrack: (i: number) => void;
   onBrowseAll: () => void;
+  eicRecords: EicRecord[];
+  onSelectEic: (id: string) => void;
 
   notice?: string;
   offlineBanner?: string;
@@ -102,7 +104,13 @@ export const PlayerView = forwardRef<HTMLDivElement, Props>(function PlayerView(
       </div>
 
       <div className="flex flex-col xl:flex-row w-full bg-surface-container-lowest">
-        <TrackRail tracks={p.tracks} selected={p.trackIndex} onSelect={p.onSelectTrack} onBrowseAll={p.onBrowseAll} />
+        <TrackRail
+          tracks={p.tracks}
+          selected={p.trackIndex}
+          onSelect={p.onSelectTrack}
+          onBrowseAll={p.onBrowseAll}
+          eic={{ records: p.eicRecords, selected: null, onSelect: p.onSelectEic }}
+        />
 
         <main aria-label="Cartographic sonification visualizer" className="flex-1 min-w-0 p-space-md xl:p-space-lg flex flex-col gap-space-md xl:gap-space-lg bg-surface">
           <Screen

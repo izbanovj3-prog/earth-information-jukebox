@@ -126,7 +126,23 @@ export function hearingFor(ds: EicDataset, mode: SoundMode): string[] {
   ];
 }
 
+/** Index of the frame with this date or label, else the frame nearest in time (like the GIBS deep links). */
+export function nearestFrame(frames: readonly EicFrame[], date: string): number {
+  const exact = frames.findIndex((f) => f.date === date || f.label === date);
+  if (exact >= 0) return exact;
+  const t = Date.parse(date);
+  if (Number.isNaN(t)) return 0;
+  let best = 0;
+  frames.forEach((f, i) => {
+    const d = f.date ? Math.abs(Date.parse(f.date) - t) : Infinity;
+    const b = frames[best]!.date ? Math.abs(Date.parse(frames[best]!.date!) - t) : Infinity;
+    if (d < b) best = i;
+  });
+  return best;
+}
+
 type Listener = () => void;
+export type NarrationKind = 'step' | 'frame' | 'event';
 
 export class EicSession {
   private readonly deps: EicDeps;
@@ -146,8 +162,11 @@ export class EicSession {
   private muted = false;
   private timers: ReturnType<typeof setTimeout>[] = [];
 
-  /** Spoken narration hook (every bar while playing, and on frame changes). */
-  onNarrate: ((text: string) => void) | null = null;
+  /** Spoken narration hook: 'step' every bar while playing, 'frame' on a new frame, 'event' for play/mode messages. */
+  onNarrate: ((text: string, kind: NarrationKind) => void) | null = null;
+  setNarrator(fn: ((text: string, kind: NarrationKind) => void) | null): void {
+    this.onNarrate = fn;
+  }
 
   constructor(dsId: string = DATASETS[0]!.id, deps: Partial<EicDeps> = {}) {
     this.deps = { ...defaultDeps, ...deps };
@@ -196,8 +215,8 @@ export class EicSession {
   }
 
   // ----- loading -----
-  /** Select a dataset and load its frames. Keeps playing if it was playing. */
-  async select(dsId: string, frameIndex = 0): Promise<void> {
+  /** Select a dataset and load its frames, at a frame index or a frame date (YYYY-MM-DD or label). */
+  async select(dsId: string, frame: number | string = 0): Promise<void> {
     const ds = byId(dsId);
     if (!ds) throw new Error(`Unknown EIC record ${dsId}`);
     const wasPlaying = this.state.playing;
@@ -217,7 +236,8 @@ export class EicSession {
       if (token !== this.loadToken) return;
       this.frames = frames;
       if (!this.needs.has(dsId)) this.needs.set(dsId, instrumentsFor(frames, ds));
-      const fi = Math.min(Math.max(0, frameIndex), frames.length - 1);
+      const wanted = typeof frame === 'string' ? nearestFrame(frames, frame) : frame;
+      const fi = Math.min(Math.max(0, wanted), frames.length - 1);
       this.player?.load(ds, frames);
       this.set({ status: 'ready', frameCount: frames.length, frameIndex: fi, activeMode: this.orchestraReadyFor(dsId) && this.state.preferredMode === 'orchestra' ? 'orchestra' : 'science' });
       this.resumeAt = fi * COLS;
@@ -309,12 +329,12 @@ export class EicSession {
       this.set({ orchestra: { status: 'ready', done: need.length, total: need.length, bytes: this.state.orchestra.bytes, totalBytes, error: null } });
       if (this.state.preferredMode === 'orchestra' && this.state.activeMode !== 'orchestra') {
         this.switchActive('orchestra');
-        this.onNarrate?.('The orchestra has loaded and takes over.');
+        this.onNarrate?.('The orchestra has loaded and takes over.', 'event');
       }
     } catch (e) {
       if (this.state.dsId === dsId) {
         this.set({ orchestra: { status: 'error', done: 0, total: need.length, bytes: 0, totalBytes, error: e instanceof Error ? e.message : String(e) } });
-        this.onNarrate?.('The orchestra could not load, so Scientific mode keeps playing.');
+        this.onNarrate?.('The orchestra could not load, so Scientific mode keeps playing.', 'event');
       }
     } finally {
       if (this.loadingFor === dsId) this.loadingFor = null;
@@ -333,7 +353,7 @@ export class EicSession {
     this.player!.start(from);
     this.set({ playing: true, activeMode: mode });
     const f = this.frames[Math.floor(from / COLS) % this.frames.length];
-    this.onNarrate?.(`Playing ${this.dataset.short}, ${f?.label ?? ''}${mode === 'science' && this.state.preferredMode === 'orchestra' ? ', in Scientific mode while the orchestra loads' : ''}.`);
+    this.onNarrate?.(`Playing ${this.dataset.short}, ${f?.label ?? ''}${mode === 'science' && this.state.preferredMode === 'orchestra' ? ', in Scientific mode while the orchestra loads' : ''}.`, 'event');
     if (this.state.preferredMode === 'orchestra') void this.loadOrchestra();
   }
 
@@ -431,14 +451,20 @@ export class EicSession {
     const f = Math.floor(k / COLS) % this.frames.length;
     const c = k % COLS;
     // Steps are scheduled ~100 ms ahead; reflect them in the UI when they actually sound.
-    if (c === 0) this.later(() => this.player?.playing && this.state.frameIndex !== f && this.set({ frameIndex: f }), 120);
+    if (c === 0)
+      this.later(() => {
+        if (!this.player?.playing || !this.frames || this.state.frameIndex === f) return;
+        this.set({ frameIndex: f });
+        const fr = this.frames[f]!;
+        this.onNarrate?.(`${fr.label}. ${frameDescription(this.dataset, fr, this.frames[f - 1])}`, 'frame');
+      }, 120);
     if (c % 4 === 0) {
       const text = describeAt(this.dataset, this.frames, f, c);
       this.later(() => this.player?.playing && this.set({ hearing: text }), 150);
     }
     if (c % 16 === 0) {
       const text = describeAt(this.dataset, this.frames, f, Math.min(COLS - 1, c + 2));
-      this.later(() => this.player?.playing && this.onNarrate?.(text), 150);
+      this.later(() => this.player?.playing && this.onNarrate?.(text, 'step'), 150);
     }
   }
 

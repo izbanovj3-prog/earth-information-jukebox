@@ -1,5 +1,10 @@
 import { TRACKS } from '../../src/data/catalog';
 import { audioStats, expect, expectNoSeriousA11yViolations, gibsLog, test, waitForFrame } from './fixtures';
+import { DATASETS as EIC_DATASETS } from '../../src/eic/vendor/datasets';
+
+/** The GIBS player: the app opens on the first EIC record (Night Lights), so GIBS tests name their record. */
+const GIBS_HOME = '/?record=air-temperature';
+const EIC_COUNT = EIC_DATASETS.length;
 
 /** The track rail (left column) is the scoped place to select records by title; the side panel
  * and track library repeat the same title text, so unscoped text queries would be ambiguous. */
@@ -7,11 +12,11 @@ const trackRail = (page: import('@playwright/test').Page) => page.getByRole('com
 
 test.describe('Earth Information Jukebox', () => {
   test('loads with disclaimer, records and a live (mocked) GIBS frame; no audio before a gesture', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Jukebox');
     // The same disclaimer also appears (hidden) inside the closed how-to-listen dialog; the footer is the always-visible copy.
     await expect(page.getByRole('contentinfo').getByText('Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.')).toBeVisible();
-    await expect(page.getByRole('radio')).toHaveCount(TRACKS.length + 2); // records + scan/explore
+    await expect(page.getByRole('radio')).toHaveCount(EIC_COUNT + TRACKS.length + 2); // EIC + GIBS records + scan/explore
     await waitForFrame(page);
     await expect(page.getByText('Live · NASA GIBS')).toBeVisible();
     await expect(page.locator('#frame-desc')).toContainText('July 1980');
@@ -20,7 +25,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('Play starts the audio engine and the scan, Pause stops it', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.getByRole('button', { name: 'Play' }).click();
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
@@ -43,7 +48,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('keyboard-only: play, explore, switch record, time step, help', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Skip to the player' })).toBeFocused();
@@ -83,7 +88,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('shortcuts never steal keys from focused controls', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     const time = page.getByRole('slider', { name: /Time/ });
     await time.focus();
@@ -112,7 +117,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('loads lazily (focus, two ahead, baseline) and reuses frames across record switches', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.waitForTimeout(500);
     const log = gibsLog.get(page)!;
@@ -127,7 +132,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('time-lapse advances to the next date after a sweep', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.getByRole('slider', { name: /Tempo/ }).fill('10');
     await page.getByRole('button', { name: 'Play' }).click();
@@ -136,7 +141,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('pauses all audio when the tab is hidden, also in explore mode', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.getByRole('button', { name: 'Play' }).click();
     await page.keyboard.press('e');
@@ -151,7 +156,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('narration Off keeps the live region quiet; menus keep their letter keys', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.getByText('Sound settings', { exact: true }).click();
     await page.getByRole('combobox', { name: 'Spoken narration' }).selectOption('off');
@@ -170,7 +175,7 @@ test.describe('Earth Information Jukebox', () => {
     await page.route('**/frames/air-temperature/**', (r) => r.fulfill({ status: 404, body: 'gone' }));
     await page.unroute('https://gibs.earthdata.nasa.gov/**');
     await page.route('https://gibs.earthdata.nasa.gov/**', (r) => r.abort('internetdisconnected'));
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await expect(page.getByRole('alert')).toContainText('could not be loaded');
     await expectNoSeriousA11yViolations(page, 'frame error');
     await page.unroute('**/frames/air-temperature/**');
@@ -180,7 +185,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('all records load and are axe-clean (serious/critical)', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     for (const [i, t] of TRACKS.entries()) {
       if (i > 0) await trackRail(page).getByText(t.title, { exact: true }).click();
@@ -191,7 +196,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('axe-clean in explore mode and with the how-to-listen sheet open', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.locator('label', { has: page.getByRole('radio', { name: 'Explore' }) }).click();
     await page.getByRole('application').click({ position: { x: 100, y: 60 } });
@@ -208,7 +213,7 @@ test.describe('Earth Information Jukebox', () => {
   });
 
   test('track library: browse, filter and play a record from the catalog', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.getByRole('button', { name: /Browse all records/ }).click();
     await expect(page.getByRole('heading', { name: 'Choose a record' })).toBeVisible();
@@ -247,7 +252,7 @@ test.describe('demo tour script', () => {
   test('visits each scripted step on time and ends', async ({ page }) => {
     test.setTimeout(60_000);
     await page.clock.install();
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await page.getByRole('button', { name: /Demo Tour/ }).click();
     // Freeze page time so only fastForward() moves the tour (assertions take real time).
@@ -272,7 +277,7 @@ test.describe('demo tour script', () => {
 test.describe('offline fallback', () => {
   test.use({ gibs: 'blocked' });
   test('uses bundled frames with a visible banner when GIBS is unreachable', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     await expect(page.getByRole('status').filter({ hasText: 'Live NASA GIBS imagery is unavailable' })).toBeVisible();
     await expect(page.getByText('Bundled copy · NASA GIBS')).toBeVisible();
@@ -291,7 +296,7 @@ test.describe('responsive screenshots', () => {
   for (const width of [360, 768, 1280]) {
     test(`renders without horizontal overflow at ${width}px`, async ({ page }, info) => {
       await page.setViewportSize({ width, height: 900 });
-      await page.goto('/');
+      await page.goto(GIBS_HOME);
       await waitForFrame(page);
       const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
       expect(scrollWidth).toBeLessThanOrEqual(width);
@@ -320,7 +325,7 @@ test.describe('phone layout', () => {
 
 test.describe('build hardening', () => {
   test('CSP allows same-origin media (playlist) and the favicon is the project record icon', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
     expect(csp).toContain("media-src 'self'");
     const icon = (await page.locator('link[rel="icon"]').getAttribute('href')) ?? '';
@@ -333,7 +338,7 @@ test.describe('build hardening', () => {
 test.describe('reduced motion', () => {
   test.use({ colorScheme: 'dark', reducedMotion: 'reduce' });
   test('disables decorative animation', async ({ page }) => {
-    await page.goto('/');
+    await page.goto(GIBS_HOME);
     await waitForFrame(page);
     const dur = await page.locator('[class*=tube]').first().evaluate((el) => getComputedStyle(el).animationDuration);
     expect(parseFloat(dur)).toBeLessThan(0.01);

@@ -1,3 +1,4 @@
+import { EIC_DATASETS } from '../eic/session';
 import { useEffect, useState, type ReactNode } from 'react';
 import { TRACKS } from '../data/catalog';
 import { BackIcon, MuteIcon, PersonIcon, VolumeIcon } from './icons';
@@ -145,7 +146,7 @@ export function AppShell(p: AppShellProps) {
           </div>
           <div className="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant">
             <span>Records</span>
-            <span className="text-secondary">{TRACKS.length} verified</span>
+            <span className="text-secondary">{TRACKS.length + EIC_DATASETS.length} ({EIC_DATASETS.length} EIC + {TRACKS.length} GIBS)</span>
           </div>
         </div>
       </aside>

@@ -125,6 +125,14 @@ describe('EicSession', () => {
     expect(audio.created()).toBe(1);
   });
 
+  it('snaps a deep-link date to the nearest frame', async () => {
+    const { session } = setup();
+    await session.select('lightning', '2019-07-02');
+    expect(session.currentFrame?.date).toBe('2019-07-15');
+    await session.select('lightning', 'August 2019');
+    expect(session.currentFrame?.date).toBe('2019-08-15');
+  });
+
   it('explore returns a spoken description with coordinates and region', async () => {
     const { session } = setup(memoryStorage({ 'eic.soundMode': 'science' }));
     await session.select('nightlights');
