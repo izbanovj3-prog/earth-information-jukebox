@@ -31,3 +31,8 @@ export function loadSamples(
   onProgress?: (done: number, total: number, bytes: number) => void,
   only?: string[],
 ): Promise<SampleBank>;
+/** fetch with a per-try timeout and retries with exponential backoff on network errors, 5xx and 429. */
+export function fetchWithRetry(
+  url: string,
+  opts?: { tries?: number; timeoutMs?: number; backoffMs?: number; fetcher?: (url: string, init: RequestInit) => Promise<Response> },
+): Promise<Response>;
