@@ -175,6 +175,25 @@ test.describe('Earth Information Center records', () => {
     expect(download.suggestedFilename()).toBe('earth-jukebox-airquality-science.wav');
   });
 
+  test('trend chart: summary for screen readers, a data table, and clicking a point jumps to that frame', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    const chart = page.getByRole('img', { name: /^Global night-light brightness \(index\): [\d.]+ in 2012, [\d.]+ in 2023; highest/ });
+    await expect(chart).toBeVisible();
+    await page.getByText('Show as a table').click();
+    const rows = page.getByRole('table', { name: /one value per frame/ }).locator('tbody tr');
+    await expect(rows).toHaveCount(12);
+    await expect(rows.first()).toHaveAttribute('aria-current', 'true');
+    // the hit target for 2016 (5th of 12 columns)
+    const box = (await chart.boundingBox())!;
+    const plotLeft = box.x + (44 / 640) * box.width;
+    const plotW = ((640 - 44 - 12) / 640) * box.width;
+    await page.mouse.click(plotLeft + (4 / 11) * plotW, box.y + box.height / 2);
+    await expect(page).toHaveURL(/date=2016-07-01/);
+    await expect(rows.nth(4)).toHaveAttribute('aria-current', 'true');
+    await expectNoSeriousA11yViolations(page, 'trend chart with table open');
+  });
+
   test('every EIC record loads and is axe-clean', async ({ page }) => {
     for (const ds of EIC) {
       await page.goto(`/?record=eic-${ds.id}`);

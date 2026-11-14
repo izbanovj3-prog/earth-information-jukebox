@@ -2,11 +2,12 @@
 // visual language as the GIBS player. Sound comes from the teammate's engine via EicSession.
 import { forwardRef, useEffect, useId, useRef, useState } from 'react';
 import type { Track } from '../data/catalog';
-import { EIC_COLS, EIC_ROWS, frameAlt, frameDescription, hearingFor, shortLabel, type EicSession, type EicState, type SoundMode } from '../eic/session';
+import { EIC_COLS, EIC_ROWS, fmtVal, frameAlt, frameDescription, hearingFor, metricValue, shortLabel, type EicSession, type EicState, type SoundMode } from '../eic/session';
 import type { EicDataset } from '../eic/vendor/datasets';
 import { MuteIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, VolumeIcon } from './icons';
 import { Playlist } from './Playlist';
 import { TimeScrubber } from './TimeScrubber';
+import { TrendChart } from './TrendChart';
 import { TrackRail, type EicRecord } from './TrackRail';
 import type { NarrationMode } from './Transport';
 
@@ -385,6 +386,16 @@ export const EicPlayerView = forwardRef<HTMLDivElement, Props>(function EicPlaye
             onTimelapse={() => {}}
             timelapseFixed
           />
+          {frames && (
+            <TrendChart
+              title="Trend across frames"
+              metric={p.dataset.metric.label + (p.dataset.metric.unit === '%' ? '' : ' (' + p.dataset.metric.unit + ')')}
+              points={frames.map((f) => ({ label: f.label, value: metricValue(p.dataset, f) }))}
+              current={p.state.frameIndex}
+              format={(v) => fmtVal(p.dataset, v)}
+              onSelect={(i) => p.session.seekFrame(i)}
+            />
+          )}
           <section aria-labelledby="desc-h" className="max-w-[72ch]">
             <h2 id="desc-h" className="font-label-sm text-label-sm uppercase text-primary mb-1.5">
               What this frame shows

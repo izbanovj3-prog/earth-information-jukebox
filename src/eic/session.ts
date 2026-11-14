@@ -81,8 +81,9 @@ export function frameAlt(ds: EicDataset, f: EicFrame): string {
   return `${ds.title}, ${f.label}. ${ds.summary.split('. ')[0]}.${regions}`;
 }
 
-const metricValue = (ds: EicDataset, f: EicFrame) => (f.stats[ds.metric.key] || 0) * ds.metric.scale;
-const fmtVal = (ds: EicDataset, v: number) => (ds.metric.unit === '%' ? `${v.toFixed(0)}%` : v.toFixed(1));
+/** The record's headline number for one frame (prototype's metricValue), in display units. */
+export const metricValue = (ds: EicDataset, f: EicFrame) => (f.stats[ds.metric.key] || 0) * ds.metric.scale;
+export const fmtVal = (ds: EicDataset, v: number) => (ds.metric.unit === '%' ? `${v.toFixed(0)}%` : v.toFixed(1));
 
 /** Long description of a frame computed from the data (prototype's frameDescription). */
 export function frameDescription(ds: EicDataset, f: EicFrame, prev?: EicFrame): string {
