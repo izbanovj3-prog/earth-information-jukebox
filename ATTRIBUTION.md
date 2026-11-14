@@ -1,6 +1,6 @@
 # Attribution
 
-The app shows the same credits in its "Sources and Limits" panel.
+The app shows the same credits in its How to Listen sheet (open it from the header or press `?`), under "Sources and limits".
 
 ## Data
 

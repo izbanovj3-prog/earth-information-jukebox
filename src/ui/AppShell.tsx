@@ -4,9 +4,6 @@ import { BackIcon, MuteIcon, PersonIcon, VolumeIcon } from './icons';
 
 export const DISCLAIMER = 'Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.';
 
-/** 01 Deck Monitor is the real player; the rest are visual-only (see .stitch/DESIGN.md). */
-const DECORATIVE_RAIL_ITEMS = ['02 SPECTRUM RACK', '03 MATRIX ROUTER', '04 CALIBRATION', '05 TAPE ARCHIVE'];
-
 function useUtcClock() {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -137,23 +134,8 @@ export function AppShell(p: AppShellProps) {
                   : 'bg-surface-container border-surface-container-highest text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
               }`}
             >
-              <span className="font-label-md text-label-md uppercase">01 Deck Monitor</span>
-              <span className="font-label-sm text-label-sm text-secondary bg-surface-container-lowest px-1 border border-surface-container-highest">
-                1
-              </span>
+              <span className="font-label-md text-label-md uppercase">Deck Monitor</span>
             </button>
-            {DECORATIVE_RAIL_ITEMS.map((label, i) => (
-              <span
-                key={label}
-                aria-disabled="true"
-                className="flex items-center justify-between min-h-[48px] px-space-sm bg-surface-container border border-surface-container-highest text-outline opacity-60 cursor-not-allowed"
-              >
-                <span className="font-label-md text-label-md uppercase">{label}</span>
-                <span className="font-label-sm text-label-sm text-outline bg-surface-container-lowest px-1 border border-surface-container-highest">
-                  {i + 2}
-                </span>
-              </span>
-            ))}
           </nav>
         </div>
         <div className="flex flex-col gap-space-xs border-t border-surface-container-highest pt-space-sm">

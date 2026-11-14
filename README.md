@@ -82,11 +82,17 @@ The engine schedules notes 100 ms ahead on the AudioContext clock and moves the 
 
 ## Accessibility
 
-- Keyboard: Space plays or pauses, E jumps to the map, arrow keys explore (2° per press, Shift jumps 20°), `[` and `]` switch records, `,` and `.` step through time, D reads a full description of the frame, M mutes, `?` opens help, Escape closes it. Shortcuts never take keys away from a focused button, slider or menu; menus keep their letter keys for type-ahead.
+- Keyboard: Space plays or pauses, E jumps to the map, arrow keys explore (2° per press, Shift jumps 20°), `[` and `]` switch records, `,` and `.` step through time, D reads a full description of the frame, M mutes, `?` opens the How to Listen sheet, Escape closes it (focus returns to whatever opened it). Shortcuts never take keys away from a focused button, slider or menu; menus keep their letter keys for type-ahead.
 - Screen readers: a polite live region tells you what you hear every few seconds ("40°W. North: warm, rising. Tropics: very warm, steady. South: no data."). You can switch narration to "Changes only" or off.
 - Each frame has a text description with the area-weighted average, the change since the first frame, the highest and lowest points with coordinates, and each band.
 - No colour carries meaning alone. The UI keeps 4.5:1 text contrast, respects `prefers-reduced-motion`, and works from 360 px wide.
 - axe reports zero serious or critical issues on every view the e2e suite covers. Nobody has tested the app with NVDA, JAWS or VoiceOver yet.
+
+## Screens
+
+- **Player** (`AppShell` + `PlayerView`): the main view. A record rail, the map with its scan line, the time scrubber, and a side panel with the live telemetry readout, per-band meters and a how-to-listen summary. The same components reflow into a single column with a fixed bottom transport bar on narrow screens; there is no separate mobile build.
+- **Track Library** (`LibraryView`): a full-page, filterable list of all five records, reachable from the player's "Browse all records" link, with an inline play control per row.
+- **How to Listen** (`HowToListenSheet`): a right-docked dialog (opened from the header or `?`) with what the sound means, the keyboard shortcuts, and sources and limits for the current record.
 
 ## Architecture
 
@@ -95,14 +101,15 @@ src/data/     GIBS URL builder and validated fetch, colormap parser, frame loade
 src/sonify/   pure functions: sampleColumn, mapToNotes, scales, drone, frame statistics
 src/audio/    AudioEngine (the only module that makes sound), look-ahead scheduler, player
 src/a11y/     narration text, keyboard map
-src/ui/       React components, demo tour script
+src/ui/       React components (AppShell, PlayerView, LibraryView, HowToListenSheet, Screen, ...), demo tour script, Tailwind theme
 scripts/      data spike and frame download (Node)
 tests/        unit (Vitest) and e2e (Playwright + axe)
+design/       reference-only Stitch mockups the UI was built from; not shipped code (see .stitch/DESIGN.md)
 ```
 
-The three sides talk through one contract in `src/types.ts`: a `Frame` (RGBA pixels plus legend and provenance), `sampleColumn(frame, x, bands)` returns a `ColumnSample`, `mapToNotes(sample, mapping)` returns `NoteEvent[]`, and `AudioEngine.schedule(notes, time)` plays them. Stack: Vite, React 18, TypeScript in strict mode, CSS Modules, the Web Audio API with no audio library.
+The three sides talk through one contract in `src/types.ts`: a `Frame` (RGBA pixels plus legend and provenance), `sampleColumn(frame, x, bands)` returns a `ColumnSample`, `mapToNotes(sample, mapping)` returns `NoteEvent[]`, and `AudioEngine.schedule(notes, time)` plays them. Stack: Vite, React 18, TypeScript in strict mode, Tailwind CSS v4, the Web Audio API with no audio library.
 
-[`CONTEXT.md`](CONTEXT.md) records every design decision and [`PLAN.md`](PLAN.md) the build steps.
+[`CONTEXT.md`](CONTEXT.md) records every design decision, [`.stitch/DESIGN.md`](.stitch/DESIGN.md) the visual design system, and [`PLAN.md`](PLAN.md) the build steps.
 
 ## Limitations
 
