@@ -300,6 +300,36 @@ test.describe('responsive screenshots', () => {
   }
 });
 
+test.describe('phone layout', () => {
+  test('at 390 px the fixed transport leaves the whole map visible; secondary controls open on demand', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/?record=air-temperature');
+    await waitForFrame(page);
+    const map = await page.getByRole('application').boundingBox();
+    const bar = await page.getByRole('region', { name: 'Console transport controls' }).boundingBox();
+    expect(map && bar).toBeTruthy();
+    expect(map!.y + map!.height).toBeLessThanOrEqual(bar!.y);
+    expect(bar!.height).toBeLessThan(140);
+    const volume = page.getByRole('slider', { name: /Volume/ });
+    await expect(volume).toBeHidden();
+    await page.getByRole('button', { name: 'More controls ▾' }).click();
+    await expect(volume).toBeVisible();
+    await expectNoSeriousA11yViolations(page, '390 px, more controls open');
+  });
+});
+
+test.describe('build hardening', () => {
+  test('CSP allows same-origin media (playlist) and the favicon is the project record icon', async ({ page }) => {
+    await page.goto('/');
+    const csp = await page.locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content');
+    expect(csp).toContain("media-src 'self'");
+    const icon = (await page.locator('link[rel="icon"]').getAttribute('href')) ?? '';
+    // No NASA-insignia lookalike (NASA blue #0b3d91 disc) from the teammate prototype.
+    expect(decodeURIComponent(icon).toLowerCase()).not.toContain('0b3d91');
+    expect(decodeURIComponent(icon).toLowerCase()).toContain('ffb547');
+  });
+});
+
 test.describe('reduced motion', () => {
   test.use({ colorScheme: 'dark', reducedMotion: 'reduce' });
   test('disables decorative animation', async ({ page }) => {
