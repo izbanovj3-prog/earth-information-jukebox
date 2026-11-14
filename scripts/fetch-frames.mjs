@@ -74,6 +74,26 @@ for (const track of TRACKS) {
     frames,
   };
 }
+// Static, decorative coastline overlay for orientation (OpenStreetMap data via GIBS; attribution required).
+{
+  const p = new URLSearchParams({
+    SERVICE: 'WMS', REQUEST: 'GetMap', VERSION: '1.3.0', LAYERS: 'Coastlines_15m', STYLES: '',
+    CRS: 'EPSG:4326', BBOX: '-90,-180,90,180', WIDTH: String(W * 2), HEIGHT: String(H * 2),
+    FORMAT: 'image/png', TRANSPARENT: 'TRUE',
+  });
+  const url = `${WMS}?${p}`;
+  const r = await get(url);
+  const buf = Buffer.from(await r.arrayBuffer());
+  const ok = r.status === 200 && (r.headers.get('content-type') ?? '').startsWith('image/png') && buf.length < 5_000_000;
+  console.log(`${ok ? 'OK  ' : 'FAIL'} basemap Coastlines_15m bytes=${buf.length}`);
+  if (!ok) failures++;
+  else {
+    mkdirSync(new URL('basemap/', OUT), { recursive: true });
+    writeFileSync(new URL('basemap/coastlines.png', OUT), buf);
+    manifest.basemap = { layerId: 'Coastlines_15m', file: 'frames/basemap/coastlines.png', sourceUrl: url, credit: '© OpenStreetMap contributors (ODbL), via NASA GIBS' };
+  }
+}
+
 writeFileSync(new URL('manifest.json', OUT), JSON.stringify(manifest, null, 2) + '\n');
 console.log(failures ? `\n${failures} frame(s) failed verification` : '\nAll frames verified');
 process.exitCode = failures ? 1 : 0;

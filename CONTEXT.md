@@ -81,7 +81,19 @@ npm run frames     # re-download bundled GIBS frames (needs network)
 - **Aesthetic**: retro-futuristic valve jukebox: deep-space navy/black base, single amber "valve glow" accent, chrome bezels, CRT-like screen for the frame.
 - **Frames in-app**: try live GIBS first (validated, 8 s timeout), fall back to bundled frames with a visible banner.
 
-(More added as work proceeds.)
+- **Tracks** (data spike): 5 verified GIBS layers — MERRA-2 2 m air temperature (July, 1980–2024), GHRSST MUR25 sea ice (mid-Sept 2007–2025), GHRSST MUR25 SST (mid-Aug 2003–2025), MODIS Terra NDVI monthly 2024, MERRA-2 aerosol optical thickness monthly 2024. Rejected: MODIS SST monthly (empty image). Pixel colours match GIBS colormap entries 100%, so values are recovered exactly.
+- **Sea ice 2003/2005 dropped**: valid-pixel fraction and low-concentration share differ sharply from later years (likely a product/source change), so they are not comparable.
+- **Honest stories**: calibration showed Arctic Sept ice 2007–2025 has big year-to-year swings (2012 lowest) and single-day SST barely trends; copy says so instead of claiming a smooth decline.
+- **Accents** fire on extreme *pixels* in a band (top 6% of the track range), not band means; low-end accents disabled where they would fire on almost every column (Antarctic winter, clean polar air). Sea ice has no accents.
+- **Drone** follows an area-weighted metric vs the first frame (`mean`, `coverage`, or Arctic `northCoverage`), with a per-track `changeScale` = change that moves it a fifth. Documented in-app as a deliberate exaggeration.
+- **Pitch** maps value the same way in every band ("higher = more" always holds); bands differ by timbre + a small stagger.
+- **Keyboard**: shortcuts never override a focused native control; arrows explore only on the map or page body; E jumps to the map; `,`/`.` step time; D reads the frame description (additions beyond the brief, logged here).
+- **Coastline overlay** (GIBS `Coastlines_15m`, © OpenStreetMap contributors, ODbL) for orientation only; never sonified.
+- **GIBS colormaps are rainbow-like** (dataviz anti-pattern) but are kept: the legend must describe the source image. A scale legend with ticks, hover crosshair and a live "now" marker is shown.
+- **HUD outside the image**: date/source chips sit in the bezel, not over data.
+- **URL state**: `?record=<id>&date=<YYYY-MM-DD>` for shareable views.
+- **Node scripts** use `NODE_USE_ENV_PROXY=1` so `fetch` honours the sandbox proxy.
+- **Dev-only audit**: 7 moderate advisories in the typescript-eslint toolchain (lint only, not shipped).
 
 ## Acceptance criteria
 

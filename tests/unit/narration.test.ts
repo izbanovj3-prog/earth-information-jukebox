@@ -54,8 +54,8 @@ describe('describeFrame', () => {
     const f2 = synthFrame(8, 6, (x, y) => (y === 5 ? null : x === 0 && y === 0 ? 25 : 12));
     const text = describeFrame(track, '2024-07-01', frameStats(f2), { date: '1980-07-01', stats: frameStats(f1) });
     expect(text).toContain('July 2024');
-    expect(text).toMatch(/Up \d+\.\d u compared with July 1980/);
-    expect(text).toContain('Highest: 25.0 u');
+    expect(text).toMatch(/Up \d+\.\d\u00a0u compared with July 1980/);
+    expect(text).toContain('Highest: 25.0\u00a0u');
     expect(text).toMatch(/Data covers \d+% of the globe/);
     expect(text).toContain('By latitude band: North');
   });

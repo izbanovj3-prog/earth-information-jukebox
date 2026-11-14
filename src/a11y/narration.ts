@@ -56,7 +56,7 @@ function changePhrase(track: Track, cur: number | null, base: number | null, bas
   const d = (cur - base) * track.display.scale;
   const abs = Math.abs(d).toFixed(track.display.decimals + (track.display.decimals === 0 ? 1 : 0));
   if (Number(abs) === 0) return ` About the same as ${formatDate(track, baseDate)}.`;
-  return ` ${d > 0 ? 'Up' : 'Down'} ${abs} ${track.display.unit} compared with ${formatDate(track, baseDate)}.`;
+  return ` ${d > 0 ? 'Up' : 'Down'} ${abs}\u00a0${track.display.unit} compared with ${formatDate(track, baseDate)}.`;
 }
 
 /** Full text description of a frame, for sound-only and screen-reader use. */

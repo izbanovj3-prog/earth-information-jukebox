@@ -26,6 +26,8 @@ export interface Track {
   /** Words for low / high values, used by the narrator and the How-to-listen legend. */
   lowWord: string;
   highWord: string;
+  /** Plain statement of the pitch mapping, e.g. "Higher pitch = warmer air". */
+  pitchHint: string;
   plainLanguageStory: string;
   /** What "no data" means for this layer (rests in the music). */
   noDataMeans: string;
@@ -64,6 +66,7 @@ export const TRACKS: Track[] = [
     range: [214, 316],
     lowWord: 'cold',
     highWord: 'warm',
+    pitchHint: 'Higher pitch = warmer air',
     plainLanguageStory:
       'Air temperature two metres above the ground, averaged over each July, from a NASA reanalysis that blends satellite and ground observations. Listen to the low drone: it follows the global average and rises as July gets warmer over 44 years.',
     noDataMeans: 'This layer has no gaps, so there are no rests.',
@@ -81,14 +84,15 @@ export const TRACKS: Track[] = [
     layerId: 'GHRSST_L4_MUR25_Sea_Ice_Concentration',
     layerTitle: 'Sea Ice Concentration (L4, MUR25, GHRSST)',
     timeRange: 'Mid-September 2007 – 2025',
-    timeStep: 'P2Y',
+    timeStep: 'P1Y-P4Y (irregular)',
     dates: yearly('09', [2007, 2009, 2011, 2012, 2014, 2016, 2018, 2020, 2024, 2025], '15'),
     colormapUrl: `${CM}GHRSST_Sea_Ice_Concentration.xml`,
     legendUnits: '%',
     display: { unit: '%', offset: 0, scale: 1, decimals: 0 },
     range: [0, 100],
-    lowWord: 'open water',
-    highWord: 'solid ice',
+    lowWord: 'sparse ice',
+    highWord: 'dense ice',
+    pitchHint: 'Higher pitch = more ice cover',
     plainLanguageStory:
       'How much of the sea surface is covered by ice in mid-September, when Arctic ice is near its yearly minimum and Antarctic ice near its maximum. The northern voice is the Arctic and the drone follows Arctic ice cover. The years swing up and down; 2012, the record low, is where the drone sinks furthest.',
     noDataMeans: 'Land and ice-free ocean have no sea-ice value, so you hear rests.',
@@ -114,6 +118,7 @@ export const TRACKS: Track[] = [
     range: [-2, 34],
     lowWord: 'cool',
     highWord: 'hot',
+    pitchHint: 'Higher pitch = warmer water',
     plainLanguageStory:
       'Temperature of the ocean surface on one day each August, from a multi-satellite analysis. The tropical voice sings highest. The drone tracks the global ocean average relative to 2003. A single day per year is noisy, so listen for the long-term drift rather than each step.',
     noDataMeans: 'Land and sea ice have no sea-surface value, so you hear rests over continents.',
@@ -139,6 +144,7 @@ export const TRACKS: Track[] = [
     range: [0, 1],
     lowWord: 'bare',
     highWord: 'lush',
+    pitchHint: 'Higher pitch = greener land',
     plainLanguageStory:
       'How green the land is, measured by the Normalized Difference Vegetation Index from the MODIS instrument. Over one year you can hear the planet breathe: the northern voice blooms in summer and fades in winter, while the south does the opposite.',
     noDataMeans: 'Oceans, snow and bare ground carry no vegetation value, so you hear rests.',
@@ -164,6 +170,7 @@ export const TRACKS: Track[] = [
     range: [0, 0.9],
     lowWord: 'clear',
     highWord: 'hazy',
+    pitchHint: 'Higher pitch = hazier air',
     plainLanguageStory:
       'How much sunlight is blocked by particles in the air: desert dust, smoke from fires, sea salt and pollution. Listen for the tropical voice climbing during the Saharan dust and fire seasons, with bells marking the haziest skies.',
     noDataMeans: 'This layer has no gaps, so there are no rests.',
@@ -184,7 +191,7 @@ export function getTrack(id: string): Track {
 export function formatValue(track: Track, value: number | null): string {
   if (value === null) return 'no data';
   const v = value * track.display.scale + track.display.offset;
-  return `${v.toFixed(track.display.decimals)} ${track.display.unit}`;
+  return `${v.toFixed(track.display.decimals)}\u00a0${track.display.unit}`;
 }
 
 export function formatDate(track: Track, iso: string): string {
