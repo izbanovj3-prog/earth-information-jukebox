@@ -97,9 +97,16 @@ export class FakeContext {
     this.oscillators.push(o);
     return o;
   }
+  createAnalyser() {
+    return Object.assign(new FakeNode(), { fftSize: 2048, smoothingTimeConstant: 0.8 });
+  }
   createBufferSource() {
     const s = Object.assign(new FakeNode(), {
       buffer: null as unknown,
+      loop: false,
+      loopStart: 0,
+      loopEnd: 0,
+      playbackRate: new FakeParam(),
       onended: null as null | (() => void),
       start() {},
       stop() {},
