@@ -29,6 +29,14 @@ export interface Track {
   plainLanguageStory: string;
   /** What "no data" means for this layer (rests in the music). */
   noDataMeans: string;
+  /** Global metric followed by the change drone: area-weighted mean, or coverage (mean x valid area). */
+  droneMetric: 'mean' | 'coverage' | 'northCoverage';
+  /** Change in the drone metric (legend units) that moves the drone a full fifth. Intentional exaggeration. */
+  changeScale: number;
+  /** Fraction at the low / high end of `range` where a pixel triggers an accent (0 = off). */
+  accents: { low: number; high: number };
+  /** What an accent means, for the How-to-listen legend. */
+  accentMeaning: string;
   /** Record label colour (decorative only, never the sole carrier of meaning). */
   hue: number;
 }
@@ -53,24 +61,28 @@ export const TRACKS: Track[] = [
     colormapUrl: `${CM}MERRA2_2m_Air_Temperature_Monthly.xml`,
     legendUnits: 'K',
     display: { unit: '°C', offset: -273.15, scale: 1, decimals: 1 },
-    range: [230, 310],
+    range: [214, 316],
     lowWord: 'cold',
     highWord: 'warm',
     plainLanguageStory:
       'Air temperature two metres above the ground, averaged over each July, from a NASA reanalysis that blends satellite and ground observations. Listen to the low drone: it follows the global average and rises as July gets warmer over 44 years.',
     noDataMeans: 'This layer has no gaps, so there are no rests.',
+    droneMetric: 'mean',
+    changeScale: 1,
+    accents: { low: 0, high: 0.06 },
+    accentMeaning: 'Bell: air at 37 °C or hotter somewhere in that band. Count the bells: there are more of them in recent Julys.',
     hue: 18,
   },
   {
     id: 'sea-ice',
     title: 'Thin Ice',
-    subtitle: 'September sea ice, 2003–2025',
+    subtitle: 'September sea ice, 2007–2025',
     ecTheme: 'Sea ice',
     layerId: 'GHRSST_L4_MUR25_Sea_Ice_Concentration',
     layerTitle: 'Sea Ice Concentration (L4, MUR25, GHRSST)',
-    timeRange: 'Mid-September 2003 – 2025',
+    timeRange: 'Mid-September 2007 – 2025',
     timeStep: 'P2Y',
-    dates: yearly('09', [2003, 2005, 2007, 2009, 2011, 2012, 2014, 2016, 2018, 2020, 2024, 2025], '15'),
+    dates: yearly('09', [2007, 2009, 2011, 2012, 2014, 2016, 2018, 2020, 2024, 2025], '15'),
     colormapUrl: `${CM}GHRSST_Sea_Ice_Concentration.xml`,
     legendUnits: '%',
     display: { unit: '%', offset: 0, scale: 1, decimals: 0 },
@@ -78,8 +90,12 @@ export const TRACKS: Track[] = [
     lowWord: 'open water',
     highWord: 'solid ice',
     plainLanguageStory:
-      'How much of the sea surface is covered by ice in mid-September, when Arctic ice is near its yearly minimum and Antarctic ice near its maximum. The northern voice is the Arctic: listen to it thin out and fall silent more often over two decades.',
+      'How much of the sea surface is covered by ice in mid-September, when Arctic ice is near its yearly minimum and Antarctic ice near its maximum. The northern voice is the Arctic and the drone follows Arctic ice cover. The years swing up and down; 2012, the record low, is where the drone sinks furthest.',
     noDataMeans: 'Land and ice-free ocean have no sea-ice value, so you hear rests.',
+    droneMetric: 'northCoverage',
+    changeScale: 1,
+    accents: { low: 0, high: 0 },
+    accentMeaning: 'No accents on this track: ice cover is bounded between 0 and 100%.',
     hue: 195,
   },
   {
@@ -95,12 +111,16 @@ export const TRACKS: Track[] = [
     colormapUrl: `${CM}GHRSST_Sea_Surface_Temperature.xml`,
     legendUnits: '°C',
     display: { unit: '°C', offset: 0, scale: 1, decimals: 1 },
-    range: [-2, 32],
+    range: [-2, 34],
     lowWord: 'cool',
     highWord: 'hot',
     plainLanguageStory:
-      'Temperature of the ocean surface on one day each August, from a multi-satellite analysis. The tropical voice sings highest. The drone tracks the global ocean average: a rising drone means a warming ocean.',
+      'Temperature of the ocean surface on one day each August, from a multi-satellite analysis. The tropical voice sings highest. The drone tracks the global ocean average relative to 2003. A single day per year is noisy, so listen for the long-term drift rather than each step.',
     noDataMeans: 'Land and sea ice have no sea-surface value, so you hear rests over continents.',
+    droneMetric: 'mean',
+    changeScale: 0.3,
+    accents: { low: 0, high: 0.06 },
+    accentMeaning: 'Bell: water at 32 °C or hotter somewhere in that band.',
     hue: 210,
   },
   {
@@ -122,6 +142,10 @@ export const TRACKS: Track[] = [
     plainLanguageStory:
       'How green the land is, measured by the Normalized Difference Vegetation Index from the MODIS instrument. Over one year you can hear the planet breathe: the northern voice blooms in summer and fades in winter, while the south does the opposite.',
     noDataMeans: 'Oceans, snow and bare ground carry no vegetation value, so you hear rests.',
+    droneMetric: 'mean',
+    changeScale: 0.15,
+    accents: { low: 0, high: 0.06 },
+    accentMeaning: 'Bell: the very greenest land (index 0.94 or more) somewhere in that band.',
     hue: 120,
   },
   {
@@ -143,6 +167,10 @@ export const TRACKS: Track[] = [
     plainLanguageStory:
       'How much sunlight is blocked by particles in the air: desert dust, smoke from fires, sea salt and pollution. Listen for the tropical voice climbing during the Saharan dust and fire seasons, with bells marking the haziest skies.',
     noDataMeans: 'This layer has no gaps, so there are no rests.',
+    droneMetric: 'mean',
+    changeScale: 0.05,
+    accents: { low: 0, high: 0.06 },
+    accentMeaning: 'Bell: very hazy air (optical depth 0.85 or more), usually desert dust or smoke.',
     hue: 40,
   },
 ];

@@ -20,8 +20,14 @@ export function valueGrid(frame: Frame): Float32Array {
   return out;
 }
 
-/** Mean of valid values in a rectangle (clamped). null if fewer than minValid fraction are valid. */
-export function regionMean(frame: Frame, x0: number, y0: number, x1: number, y1: number, minValid = 0.1): number | null {
+export interface RegionStats {
+  mean: number | null;
+  min: number | null;
+  max: number | null;
+}
+
+/** Mean/min/max of valid values in a rectangle (clamped). All null if fewer than minValid fraction are valid. */
+export function regionStats(frame: Frame, x0: number, y0: number, x1: number, y1: number, minValid = 0.1): RegionStats {
   const g = valueGrid(frame);
   const xa = Math.max(0, Math.floor(Math.min(x0, x1)));
   const xb = Math.min(frame.width - 1, Math.floor(Math.max(x0, x1)));
@@ -30,6 +36,8 @@ export function regionMean(frame: Frame, x0: number, y0: number, x1: number, y1:
   let sum = 0;
   let n = 0;
   let total = 0;
+  let min = Infinity;
+  let max = -Infinity;
   for (let y = ya; y <= yb; y++) {
     for (let x = xa; x <= xb; x++) {
       total++;
@@ -37,10 +45,18 @@ export function regionMean(frame: Frame, x0: number, y0: number, x1: number, y1:
       if (!Number.isNaN(v)) {
         sum += v;
         n++;
+        if (v < min) min = v;
+        if (v > max) max = v;
       }
     }
   }
-  return total > 0 && n / total >= minValid && n > 0 ? sum / n : null;
+  if (total === 0 || n === 0 || n / total < minValid) return { mean: null, min: null, max: null };
+  return { mean: sum / n, min, max };
+}
+
+/** Mean of valid values in a rectangle (clamped). null if fewer than minValid fraction are valid. */
+export function regionMean(frame: Frame, x0: number, y0: number, x1: number, y1: number, minValid = 0.1): number | null {
+  return regionStats(frame, x0, y0, x1, y1, minValid).mean;
 }
 
 export function xToLon(frame: Pick<Frame, 'width'>, x: number): number {

@@ -43,6 +43,9 @@ export interface Band {
   lat: [number, number];
   /** Physical value (legend units) or null if no data. */
   value: number | null;
+  /** Most extreme pixel values in the band (used for accents). */
+  min?: number | null;
+  max?: number | null;
 }
 
 export interface ColumnSample {
@@ -65,8 +68,8 @@ export interface MappingConfig {
   octaves: number;
   /** Value range mapped to the pitch range (legend units). */
   range: [number, number];
-  /** Fraction at each end of the range treated as extreme (accent). */
-  outlierFraction: number;
+  /** Fraction at the low / high end of the range where a pixel triggers an accent (0 = off). */
+  outliers: { low: number; high: number };
   /** Seconds per note. */
   noteDuration: number;
   /** 0..1 */
