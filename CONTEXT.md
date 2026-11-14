@@ -4,6 +4,9 @@ Living document. Updated at every plan step.
 
 ## Goal
 
+- Live site: https://izbanovj3-prog.github.io/earth-information-jukebox/ (GitHub Pages, deployed by `.github/workflows/pages.yml` on every push to `main`)
+- Repository: https://github.com/izbanovj3-prog/earth-information-jukebox
+
 NASA Space Apps Challenge 2026 — "The Earth Information Jukebox". Build a web app that pairs
 NASA Earth imagery frames (from GIBS, the programmatic source behind many Earth Information Center
 visuals) with **sonification generated live from the pixels currently on screen**.

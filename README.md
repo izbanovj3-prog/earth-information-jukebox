@@ -2,6 +2,10 @@
 
 Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product.
 
+**Live site:** https://izbanovj3-prog.github.io/earth-information-jukebox/ (no install, no keys; tested in Chromium-based browsers, not yet in Safari or Firefox)  
+**Source code:** https://github.com/izbanovj3-prog/earth-information-jukebox  
+**Submission text:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md) · **Demo script:** [`DEMO.md`](DEMO.md)
+
 Pick a record, press Play, and you hear NASA's view of the Earth. Ten records in two collections: five **Earth Information Center** visualizations by NASA's Scientific Visualization Studio (night lights, ocean currents, aerosols, lightning, air quality), which you can hear as a sampled chamber **Orchestra** or as a direct **Scientific** synth mapping, and five **NASA GIBS** data records whose colours are read back into physical values. The app opens on Night Lights 2012 → 2023. A scan line sweeps the map from west to east. The app reads the colour of every pixel back into a physical value (degrees, percent of ice, vegetation index) and turns those values into music in your browser as you listen. You can also stop the scan and move a cursor with the arrow keys to hear one place at a time.
 
 We built it for the 2026 challenge [The Earth Information Jukebox](https://www.spaceappschallenge.org/2026/challenges/the-earth-information-jukebox/) (full text in [`docs/CHALLENGE.md`](docs/CHALLENGE.md)). Our first audience is blind and low-vision listeners, so every feature works by keyboard and by ear, and a screen reader can follow along.

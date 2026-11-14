@@ -1,8 +1,28 @@
 # Demo
 
-## 100-second video script
+- Live site: https://izbanovj3-prog.github.io/earth-information-jukebox/
+- Source code: https://github.com/izbanovj3-prog/earth-information-jukebox
 
-Record the screen and the browser audio while the built-in demo tour runs: open the app, press **Demo Tour**, and let it play. The timecodes below match `src/ui/tour.ts`. The voice-over column is what the app's narration says (turn on a screen reader, or read it aloud over the recording). The orchestra for Night Lights downloads when the tour starts; on a slow connection the first seconds play in Scientific mode until it arrives, so record on a good connection or play Night Lights once before recording.
+## Submission summary (200 words)
+
+Earth Information Jukebox lets you hear NASA's view of the planet. Five Earth Information Center visualizations from NASA's Scientific Visualization Studio (night lights 2012 to 2023, ocean currents, aerosols, lightning seen from the Space Station, fire-season air quality) play as a sampled chamber orchestra, where every colour has its own section, or as a direct scientific synth mapping. Five NASA GIBS records (air temperature since 1980, Arctic sea ice, ocean temperature, plant growth, haze) are read pixel by pixel back into real values through each layer's colour scale. A line sweeps each map from west to east: stereo follows longitude, pitch follows latitude or value, and each frame is one sweep, so you hear change over time. Stop, and the arrow keys let you listen to one place. We designed for blind and low-vision listeners first: full keyboard control, spoken narration, a written description of every frame and a data table under each trend chart. A mixer isolates instruments; a playlist and WAV export let you take the sound with you. Limits: the sound interprets pictures rather than measuring anything, no screen-reader user has tested it yet, and on slow mobile networks the orchestra arrives only after about 40 seconds.
+
+## 30-second cut
+
+For the submission video. Record the live site in Chrome with tab audio; captions are burned in (English, white on a dark band, bottom third). Start Night Lights once before recording so its orchestra is already cached.
+
+| Time | Shot | Action on screen | Caption |
+|---|---|---|---|
+| 0:00–0:04 | Full page, Night Lights 2012 | Press Play; the amber line starts to sweep | Earth Information Jukebox: hear NASA's view of the planet. |
+| 0:04–0:10 | Map close-up | Orchestra plays 2012, then the scrubber jumps to 2023 | Night lights 2012 → 2023. Every colour plays its own section: more light, more harp. |
+| 0:10–0:15 | Map + mixer | Lightning, July 2019; the drum lights flicker in the mixer | Lightning seen from the Space Station. Here the drums are the data. |
+| 0:15–0:20 | Map + legend | Fever Pitch July 1980, then July 2024 | NASA GIBS air temperature, read back into real values. Higher pitch means warmer air. |
+| 0:20–0:25 | Keyboard close-up, then map | Press E, arrow keys over the Arctic; the narration text changes | Built for blind and low-vision listeners: explore the map by ear. |
+| 0:25–0:30 | End card over the page | Hold; show the URL | Free, no install: izbanovj3-prog.github.io/earth-information-jukebox. Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product. |
+
+## 98-second demo tour (built in)
+
+Open the live site, press **Demo Tour**, and let it play. The timecodes match `src/ui/tour.ts`. The voice-over column is what the app's narration says (turn on a screen reader, or read it aloud over the recording). On a slow connection the first seconds play in Scientific mode until the orchestra arrives.
 
 | Time | On screen | Voice-over |
 |---|---|---|
@@ -18,8 +38,4 @@ Record the screen and the browser audio while the built-in demo tour runs: open 
 | 1:30 | Hold on the full page. | "Every sound you heard was made from the pictures on screen, live in your browser. This is the Earth Information Jukebox." |
 | 1:38 | The tour stops. | |
 
-For the cut: show a keyboard close-up for two seconds at 1:04 (arrow keys), a mixer close-up (switch the harp off and on) if you have time, and end on the "Unofficial prototype" line under the title.
-
-## Submission summary (200 words)
-
-Earth Information Jukebox lets you hear NASA's view of the planet. Five Earth Information Center visualizations from NASA's Scientific Visualization Studio (night lights 2012 to 2023, ocean currents, aerosols, lightning from the Space Station, fire-season air quality) play as a sampled chamber orchestra, where every colour on the map has its own section, or as a direct scientific synth mapping. Five NASA GIBS data records (air temperature since 1980, Arctic sea ice, ocean temperature, plant growth, haze) are read pixel by pixel back into real values through each layer's colour scale. Press Play and a line sweeps the map from west to east: stereo follows longitude, pitch follows latitude or value, and change over time becomes a sequence of sweeps. Stop and the arrow keys let you listen to one place. We built it for blind and low-vision listeners first: everything works by keyboard, a screen reader narrates what you hear, every frame has a written description, and a trend chart has a data table. A mixer isolates each instrument, a curated playlist and WAV export let you take the sound with you, and the site runs statically with no keys. It interprets pictures; for measurements, use the source data.
+For a longer cut: a keyboard close-up at 1:04 (arrow keys), a mixer close-up (switch the harp off and on), and end on the disclaimer line in the footer.
