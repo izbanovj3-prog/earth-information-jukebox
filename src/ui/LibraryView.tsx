@@ -1,14 +1,28 @@
 import { useMemo, useState } from 'react';
 import type { Track } from '../data/catalog';
 import { PauseIcon, PlayIcon, SearchIcon } from './icons';
+import { Playlist } from './Playlist';
+
+/** An Earth Information Center (NASA SVS) record as the library lists it. */
+export interface EicLibraryRecord {
+  id: string;
+  title: string;
+  subtitle: string;
+  source: string;
+  hear: string;
+}
 
 interface Props {
+  eic: { records: EicLibraryRecord[]; current: string | null; playing: boolean; onOpen: (id: string) => void; onPlay: (id: string) => void };
   tracks: Track[];
+  /** Current GIBS record index, or -1 when an EIC record is current. */
   current: number;
   playing: boolean;
   onPlayTrack: (i: number) => void;
   onPauseCurrent: () => void;
   onOpenRecord: (i: number) => void;
+  /** A playlist track started: pause the live jukebox. */
+  onExternalAudio: () => void;
 }
 
 function matches(t: Track, q: string): boolean {
@@ -24,6 +38,10 @@ function whatYouWillHear(t: Track): string {
 export function LibraryView(p: Props) {
   const [query, setQuery] = useState('');
   const filtered = useMemo(() => p.tracks.map((t, i) => ({ t, i })).filter(({ t }) => matches(t, query)), [p.tracks, query]);
+  const eicFiltered = useMemo(
+    () => p.eic.records.map((r, i) => ({ r, i })).filter(({ r }) => `${r.title} ${r.subtitle} ${r.source} earth information center svs`.toLowerCase().includes(query.toLowerCase())),
+    [p.eic.records, query],
+  );
 
   return (
     <div className="w-full bg-surface-container-lowest p-space-md lg:p-space-xl flex flex-col gap-space-lg">
@@ -64,9 +82,50 @@ export function LibraryView(p: Props) {
           <span className="col-span-2 text-right">Transport</span>
         </div>
 
-        {filtered.length === 0 && (
+        {filtered.length === 0 && eicFiltered.length === 0 && (
           <p className="px-space-lg py-space-lg font-body-md text-body-md text-secondary m-0">No records match “{query}”.</p>
         )}
+
+        {eicFiltered.map(({ r, i }) => {
+          const isCurrent = r.id === p.eic.current;
+          const isCurrentPlaying = isCurrent && p.eic.playing;
+          return (
+            <div
+              key={r.id}
+              className={`grid grid-cols-1 md:grid-cols-12 gap-space-sm md:items-center px-space-lg py-space-md border-b border-surface-container-highest ${isCurrent ? 'bg-surface-container-low' : ''}`}
+              style={isCurrent ? { borderLeft: '3px solid #ffb959' } : undefined}
+            >
+              <span className="md:col-span-1 font-label-sm text-label-sm text-primary uppercase font-bold">E{i + 1}</span>
+              <div className="md:col-span-6 flex flex-col gap-1">
+                <button type="button" onClick={() => p.eic.onOpen(r.id)} className="text-left font-headline-md text-headline-md text-on-surface hover:text-primary transition-colors w-fit">
+                  {r.title}
+                </button>
+                <span className="font-label-sm text-label-sm text-secondary uppercase">{r.subtitle}</span>
+                <p className="font-body-md text-body-md text-secondary m-0 max-w-prose">
+                  <strong className="text-on-surface">What you will hear: </strong>
+                  {r.hear}
+                </p>
+              </div>
+              <div className="md:col-span-3 font-label-sm text-label-sm text-secondary">
+                <div>Earth Information Center</div>
+                <div className="text-outline">{r.source}</div>
+              </div>
+              <div className="md:col-span-2 flex md:justify-end">
+                <button
+                  type="button"
+                  onClick={() => (isCurrentPlaying ? p.onPauseCurrent() : p.eic.onPlay(r.id))}
+                  aria-label={`${isCurrentPlaying ? 'Pause' : 'Play'} ${r.title}`}
+                  className={`min-h-[48px] w-full md:w-auto px-space-md flex items-center justify-center gap-space-xs font-label-md text-label-md uppercase font-bold transition-colors ${
+                    isCurrentPlaying ? 'bg-primary text-on-primary' : 'bg-surface-container hover:bg-surface-container-high text-on-surface'
+                  }`}
+                >
+                  {isCurrentPlaying ? <PauseIcon className="w-4 h-4" /> : <PlayIcon className="w-4 h-4" />}
+                  {isCurrentPlaying ? 'Playing' : 'Play'}
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
         {filtered.map(({ t, i }) => {
           const isCurrentPlaying = i === p.current && p.playing;
@@ -114,12 +173,25 @@ export function LibraryView(p: Props) {
         })}
       </section>
 
+      <section aria-labelledby="playlist-h" className="flex flex-col gap-space-md">
+        <div className="flex flex-col gap-space-xs border-b border-surface-container-highest pb-space-sm">
+          <h2 id="playlist-h" className="font-headline-lg text-headline-lg text-on-surface m-0">
+            Curated playlist
+          </h2>
+          <p className="m-0 font-body-md text-body-md text-secondary max-w-prose">
+            Every Earth Information Center record rendered offline by the same engine, once as Orchestra and once as Scientific. Listen
+            here, or download the files to play anywhere.
+          </p>
+        </div>
+        <Playlist onPlay={p.onExternalAudio} headingId="playlist-h" />
+      </section>
+
       <footer className="flex flex-wrap items-center justify-between gap-space-sm font-label-sm text-label-sm text-secondary uppercase">
         <span>
           <span className="inline-block w-2 h-2 bg-primary mr-1.5 align-middle" aria-hidden="true" />
-          {p.tracks.length} records catalogued
+          {p.eic.records.length + p.tracks.length} records catalogued
         </span>
-        <span>All tracks synthesized live with the Web Audio API.</span>
+        <span>Every record is played live in your browser with the Web Audio API.</span>
       </footer>
     </div>
   );

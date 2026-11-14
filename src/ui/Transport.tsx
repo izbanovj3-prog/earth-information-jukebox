@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { PRESETS, type Preset } from '../sonify/mapping';
 import { KEYS, SCALE_LABELS } from '../sonify/scales';
 import type { ScaleName } from '../types';
@@ -34,6 +34,8 @@ const chip = 'min-h-[48px] px-space-md bg-surface-container-low flex items-cente
 
 export function Transport(p: Props) {
   const id = useId();
+  // Phones: the fixed bar shows only the play row; the rest opens on demand so the bar never covers the map.
+  const [more, setMore] = useState(false);
   return (
     <section
       aria-label="Console transport controls"
@@ -86,7 +88,17 @@ export function Transport(p: Props) {
         </fieldset>
       </div>
 
-      <div className="flex flex-wrap items-center gap-space-sm">
+      <button
+        type="button"
+        className="sm:hidden w-full min-h-[44px] px-space-md bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant font-label-md text-label-md uppercase text-left"
+        aria-expanded={more}
+        aria-controls={`${id}-more`}
+        onClick={() => setMore((m) => !m)}
+      >
+        {more ? 'Fewer controls ▴' : 'More controls ▾'}
+      </button>
+
+      <div id={`${id}-more`} className={`${more ? 'flex' : 'hidden'} sm:flex flex-wrap items-center gap-space-sm max-h-[50vh] overflow-y-auto sm:overflow-visible sm:max-h-none`}>
         <div className={chip}>
           <label htmlFor={`${id}-tempo`} className="font-label-sm text-label-sm uppercase text-secondary">
             Tempo <span className="text-on-surface normal-case">{p.tempo} steps/s</span>

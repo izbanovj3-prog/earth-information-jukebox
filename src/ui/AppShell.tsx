@@ -1,8 +1,9 @@
+import { EIC_DATASETS } from '../eic/session';
 import { useEffect, useState, type ReactNode } from 'react';
 import { TRACKS } from '../data/catalog';
 import { BackIcon, MuteIcon, PersonIcon, VolumeIcon } from './icons';
 
-export const DISCLAIMER = 'Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.';
+export const DISCLAIMER = 'Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product.';
 
 function useUtcClock() {
   const [now, setNow] = useState(() => new Date());
@@ -145,7 +146,7 @@ export function AppShell(p: AppShellProps) {
           </div>
           <div className="flex justify-between items-center font-label-sm text-label-sm text-on-surface-variant">
             <span>Records</span>
-            <span className="text-secondary">{TRACKS.length} verified</span>
+            <span className="text-secondary">{TRACKS.length + EIC_DATASETS.length} ({EIC_DATASETS.length} EIC + {TRACKS.length} GIBS)</span>
           </div>
         </div>
       </aside>
@@ -161,7 +162,7 @@ export function AppShell(p: AppShellProps) {
         </main>
         <footer className="w-full bg-surface-container-lowest px-space-lg py-space-sm text-center">
           <p className="font-label-sm text-label-sm text-secondary m-0">
-            Data: NASA GIBS. Sound is an interpretation of the image, not a measurement. {DISCLAIMER}
+            Data: NASA SVS and NASA GIBS. Sound is an interpretation of the image, not a measurement. {DISCLAIMER}
           </p>
         </footer>
       </div>

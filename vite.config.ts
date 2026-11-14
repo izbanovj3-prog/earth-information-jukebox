@@ -17,7 +17,7 @@ function csp(): Plugin {
     "img-src 'self' data:",
     "font-src 'self' data:",
     "connect-src 'self' https://gibs.earthdata.nasa.gov",
-    "media-src 'none'",
+    "media-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'none'",

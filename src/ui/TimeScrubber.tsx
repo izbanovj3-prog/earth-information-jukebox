@@ -6,6 +6,8 @@ interface Props {
   onSeek: (i: number) => void;
   timelapse: boolean;
   onTimelapse: (v: boolean) => void;
+  /** The piece always plays every frame in turn (no time-lapse switch). */
+  timelapseFixed?: boolean;
 }
 
 /** Scrubber deck under the map, matching the Main Player reference's "Scrubber Deck" section. */
@@ -42,10 +44,14 @@ export function TimeScrubber(p: Props) {
         <span className="text-on-surface">
           Frame {p.frameIndex + 1} of {p.frameCount}
         </span>
-        <label className="flex items-center gap-space-xs">
-          <input type="checkbox" className="accent-primary" checked={p.timelapse} onChange={(e) => p.onTimelapse(e.target.checked)} />
-          Advance through time after each sweep
-        </label>
+        {p.timelapseFixed ? (
+          <span>Plays every frame in turn, one sweep each</span>
+        ) : (
+          <label className="flex items-center gap-space-xs">
+            <input type="checkbox" className="accent-primary" checked={p.timelapse} onChange={(e) => p.onTimelapse(e.target.checked)} />
+            Advance through time after each sweep
+          </label>
+        )}
       </div>
     </div>
   );

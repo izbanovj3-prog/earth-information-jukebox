@@ -1,0 +1,4 @@
+Samples derived from VS Chamber Orchestra 2: Community Edition (VSCO-2-CE)
+by Versilian Studios (recorded by Sam Gossner & Simon Dalzell).
+License: CC0 1.0 Universal (public domain). https://github.com/sgossner/VSCO-2-CE
+Processed for Earth Jukebox: mono, 32 kHz, trimmed, faded, normalised (tools/build-samples.js).

@@ -1,23 +1,25 @@
 # Demo
 
-## 90-second video script
+## 100-second video script
 
-Record the screen and the browser audio while the built-in demo tour runs: open the app, press **Demo Tour**, and let it play. The timecodes below match `src/ui/tour.ts`. The voice-over column is what the app's narration says (turn on a screen reader, or read it aloud over the recording).
+Record the screen and the browser audio while the built-in demo tour runs: open the app, press **Demo Tour**, and let it play. The timecodes below match `src/ui/tour.ts`. The voice-over column is what the app's narration says (turn on a screen reader, or read it aloud over the recording). The orchestra for Night Lights downloads when the tour starts; on a slow connection the first seconds play in Scientific mode until it arrives, so record on a good connection or play Night Lights once before recording.
 
 | Time | On screen | Voice-over |
 |---|---|---|
-| 0:00 | Fever Pitch, July 1980. The amber scan line sweeps the map from left to right. | "Record one, Fever Pitch: July air temperature in 1980. The scan moves west to east; higher pitch means warmer air." |
-| 0:14 | The same record jumps to July 2024. | "Jump to July 2024. The low drone has risen with the global average, and more bells ring for air above 37 degrees." |
-| 0:28 | Thin Ice, 15 September 2012. Ice shows only at the top and bottom edges of the map. | "Record two, Thin Ice: September 2012, the record low for Arctic sea ice. The northern voice is the Arctic." |
-| 0:40 | Explore mode. A crosshair jumps to 82°N 150°W, then 82°N 20°E. | "Explore mode. The cursor is over the Arctic Ocean." |
-| 0:47 | The crosshair moves to the Antarctic sea ice edge. | "And now the Antarctic, near its winter maximum." |
-| 0:52 | Green Pulse, January 2024, played fast. The date advances month by month. | "Record four, Green Pulse: one year of plant growth, month by month. Listen to the north bloom in summer." |
-| 1:12 | Hazy Skies, August 2024. | "Record five, Hazy Skies: August 2024, the haziest month of the year in this data. Bells mark heavy dust or smoke." |
-| 1:24 | Hold on the full page. | "Every sound you heard was generated live from the pixels on screen. This is the Earth Information Jukebox." |
-| 1:30 | The tour stops. | |
+| 0:00 | Night Lights (NASA SVS 5313), 2012. The amber line sweeps the dark map; the orchestra plays. | "Demo tour. Earth Information Center record one: night lights from NASA's Scientific Visualization Studio, 2012. Each colour plays its own section of an orchestra; city lights are the harp, and north is higher in pitch." |
+| 0:12 | The same record jumps to 2023; the trend chart's marker moves to the end. | "Jump to 2023. More harp notes, and glockenspiel where light is new: the planet sounds brighter because it is brighter." |
+| 0:22 | Lightning seen from the ISS, July 2019. | "Lightning seen from the Space Station, July 2019. Here the drums are the data: every flash cluster is a hit, and the storm belt has moved north for the summer." |
+| 0:34 | Fever Pitch (NASA GIBS), July 1980. | "Now the NASA GIBS data records, read back into real values. Fever Pitch: July air temperature in 1980. Higher pitch means warmer air." |
+| 0:46 | Fever Pitch, July 2024. | "July 2024. The low drone has risen with the global average, and more bells ring for air above 37 degrees." |
+| 0:56 | Thin Ice, 15 September 2012. | "Thin Ice: September 2012, the record low for Arctic sea ice. The northern voice is the Arctic." |
+| 1:04 | Explore mode. The crosshair jumps to 82°N 150°W, then 82°N 20°E. | "Explore mode. The cursor is over the Arctic Ocean." |
+| 1:10 | The crosshair moves to the Antarctic sea ice edge. | "And now the Antarctic, near its winter maximum." |
+| 1:14 | Green Pulse, January 2024, played fast; the date advances month by month. | "Green Pulse: one year of plant growth, month by month. Listen to the north bloom in summer." |
+| 1:30 | Hold on the full page. | "Every sound you heard was made from the pictures on screen, live in your browser. This is the Earth Information Jukebox." |
+| 1:38 | The tour stops. | |
 
-For the cut: show a keyboard close-up for two seconds at 0:40 (arrow keys), and end on the "Unofficial prototype" line under the title.
+For the cut: show a keyboard close-up for two seconds at 1:04 (arrow keys), a mixer close-up (switch the harp off and on) if you have time, and end on the "Unofficial prototype" line under the title.
 
 ## Submission summary (200 words)
 
-Earth Information Jukebox lets you hear NASA's view of the planet. Choose one of five records: July air temperature since 1980, September sea ice, August ocean temperature, a year of plant growth, and a year of dust and smoke. Press Play and a scan line sweeps a NASA GIBS satellite map from west to east. The app reads each pixel's colour back into its value through the layer's own colour scale and plays it live in your browser. Pitch follows the value. Stereo follows longitude. Three voices carry the north, the tropics and the south, silence marks missing data, a bell marks extremes, and a low drone tracks the global average against the first year. Stop the scan and the arrow keys move a cursor so you can listen to a single place. We designed it for blind and low-vision listeners: every control works by keyboard, a screen reader narrates what you hear, and each frame comes with a written summary. The app runs as a static site with no keys, falls back to bundled NASA images offline, and lists its limits on screen. It interprets images, so use it to explore and turn to the source datasets for measurements.
+Earth Information Jukebox lets you hear NASA's view of the planet. Five Earth Information Center visualizations from NASA's Scientific Visualization Studio (night lights 2012 to 2023, ocean currents, aerosols, lightning from the Space Station, fire-season air quality) play as a sampled chamber orchestra, where every colour on the map has its own section, or as a direct scientific synth mapping. Five NASA GIBS data records (air temperature since 1980, Arctic sea ice, ocean temperature, plant growth, haze) are read pixel by pixel back into real values through each layer's colour scale. Press Play and a line sweeps the map from west to east: stereo follows longitude, pitch follows latitude or value, and change over time becomes a sequence of sweeps. Stop and the arrow keys let you listen to one place. We built it for blind and low-vision listeners first: everything works by keyboard, a screen reader narrates what you hear, every frame has a written description, and a trend chart has a data table. A mixer isolates each instrument, a curated playlist and WAV export let you take the sound with you, and the site runs statically with no keys. It interprets pictures; for measurements, use the source data.

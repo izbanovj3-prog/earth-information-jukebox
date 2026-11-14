@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { keyInputFromEvent, resolveShortcut, type Action } from '../a11y/keymap';
 import { describeColumn, describeFrame, describeFrameChange, describePlaying, describeProbe, Throttle } from '../a11y/narration';
 import { AudioEngine } from '../audio/engine';
@@ -18,6 +18,19 @@ import { PlayerView } from './PlayerView';
 import type { NarrationMode } from './Transport';
 import { TOUR, type TourAction } from './tour';
 import { useTrackFrames } from './useTrackFrames';
+import { EIC_COLS, EIC_DATASETS, EIC_ROWS, EicSession, nearestFrame, type NarrationKind } from '../eic/session';
+import { EicPlayerView, type EicCursor } from './EicPlayerView';
+import type { EicRecord } from './TrackRail';
+
+/** Earth Information Center records (NASA SVS), listed before the GIBS records. Night Lights opens first (D4). */
+const EIC_RECORDS: EicRecord[] = EIC_DATASETS.map((d) => ({ id: d.id, title: d.title, subtitle: d.timeSpan }));
+const DEFAULT_EIC = EIC_RECORDS[0]!.id;
+/** One running order for [ and ]: EIC records, then GIBS records. */
+type RecordRef = { kind: 'eic'; id: string } | { kind: 'gibs'; index: number };
+const ALL_RECORDS: RecordRef[] = [
+  ...EIC_RECORDS.map((r) => ({ kind: 'eic' as const, id: r.id })),
+  ...TRACKS.map((_, index) => ({ kind: 'gibs' as const, index })),
+];
 
 const STEPS = 48;
 const BASEMAP = `${BASE_URL}frames/basemap/coastlines.png`;
@@ -42,10 +55,15 @@ export function App() {
     const q = new URLSearchParams(window.location.search);
     const notes: string[] = [];
     const wanted = q.get('record');
-    let t = TRACKS.findIndex((tr) => tr.id === wanted);
-    if (t < 0) {
-      if (wanted) notes.push(`There is no record called “${wanted}”, so the first record is playing.`);
-      t = 0;
+    // EIC record (or no record at all): open the Earth Information Center player.
+    // EIC records are named eic-<id> in the URL (GIBS and EIC both have an "aerosols" record).
+    const t = TRACKS.findIndex((tr) => tr.id === wanted);
+    const eicDs = EIC_DATASETS.find((d) => `eic-${d.id}` === wanted || (t < 0 && d.id === wanted));
+    if (eicDs || t < 0) {
+      if (wanted && !eicDs) notes.push(`There is no record called “${wanted}”, so the first record is playing.`);
+      const ds = eicDs ?? EIC_DATASETS[0]!;
+      // The frame date is resolved once the baked frames are loaded (EicSession.select).
+      return { track: 0, frame: 0, eic: ds.id, eicFrame: q.get('date') ?? 0, notice: notes.join(' ') };
     }
     const dates = TRACKS[t]!.dates;
     const wantedDate = q.get('date');
@@ -58,9 +76,15 @@ export function App() {
         : dates.reduce((best, x, i) => (Math.abs(Date.parse(x) - target) < Math.abs(Date.parse(dates[best]!) - target) ? i : best), 0);
       notes.push(`${TRACKS[t]!.title} has no frame for “${wantedDate}”; showing ${formatDate(TRACKS[t]!, dates[d]!)} instead.`);
     }
-    return { track: t, frame: d, notice: notes.join(' ') };
+    return { track: t, frame: d, eic: null as string | null, eicFrame: 0 as number | string, notice: notes.join(' ') };
   });
   const [view, setView] = useState<'player' | 'library'>('player');
+  const [eicId, setEicId] = useState<string | null>(initial.eic);
+  const [eic] = useState(() => new EicSession(initial.eic ?? DEFAULT_EIC));
+  const eicState = useSyncExternalStore(eic.subscribe, eic.getState);
+  const [eicCursor, setEicCursor] = useState<EicCursor>({ r: Math.floor(EIC_ROWS / 3), c: Math.floor(EIC_COLS / 2) });
+  const [eicCursorLabel, setEicCursorLabel] = useState('Explore: click the map, or press E and use the arrow keys.');
+  const [eicExploring, setEicExploring] = useState(false);
   const [trackIndex, setTrackIndex] = useState(initial.track);
   const [frameIndex, setFrameIndex] = useState(initial.frame);
   const baseTrack = TRACKS[trackIndex]!;
@@ -116,9 +140,9 @@ export function App() {
   }, [frame, baseFrame, track, frameError, dateLabel]);
 
   // Latest values for callbacks fired by the audio clock.
-  const live = useRef({ track, narration, dateLabels, data, frameIndex, mode, playing, cursor });
+  const live = useRef({ track, narration, dateLabels, data, frameIndex, mode, playing, cursor, trackIndex });
   useLayoutEffect(() => {
-    live.current = { track, narration, dateLabels, data, frameIndex, mode, playing, cursor };
+    live.current = { track, narration, dateLabels, data, frameIndex, mode, playing, cursor, trackIndex };
   });
 
   const urgent = useCallback(
@@ -135,6 +159,41 @@ export function App() {
       .catch(() => setManifest(null));
   }, []);
 
+  // ----- Earth Information Center player (EicSession) -----
+  const eicLive = useRef({ eicId, narration });
+  useLayoutEffect(() => {
+    eicLive.current = { eicId, narration };
+  });
+  // Load the selected EIC record; the first time at the frame named in the URL.
+  const eicFirstFrame = useRef(initial.eicFrame);
+  /** Start playing once the newly selected EIC record has loaded (record switch while playing, library Play). */
+  const eicPlayWhenLoaded = useRef(false);
+  useEffect(() => {
+    if (!eicId) return;
+    const fi = eicFirstFrame.current;
+    eicFirstFrame.current = 0;
+    void eic.select(eicId, fi).then(() => {
+      if (eicPlayWhenLoaded.current && eic.getState().dsId === eicId) {
+        eicPlayWhenLoaded.current = false;
+        void eic.play();
+      }
+    });
+  }, [eic, eicId]);
+  useEffect(() => {
+    eic.setNarrator((text: string, kind: NarrationKind) => {
+      const n = eicLive.current.narration;
+      if (n === 'off' || !eicLive.current.eicId) return;
+      if (kind === 'step') {
+        if (n === 'detailed' && throttle.current.allow()) announce(text);
+        return;
+      }
+      urgent(text);
+    });
+    return () => eic.setNarrator(null);
+  }, [eic, announce, urgent]);
+  useEffect(() => eic.setVolume(volume), [eic, volume]);
+  useEffect(() => eic.setMuted(muted), [eic, muted]);
+
   // Wire data into the player. Reset to the first frame when the record changes.
   // Wire frames into the player; on a new record, start the player at the chosen frame.
   const lastTrack = useRef<string | null>(null);
@@ -147,12 +206,17 @@ export function App() {
   }, [data.frames, track, player, frameIndex]);
 
   // Reflect the current record and date in the URL (no history spam).
+  // Read from the loaded frames: their dates can differ from the static list (lightning is sampled from video).
+  const eicFrameDate = eicId && eicState.status === 'ready' ? (eic.loadedFrames?.[eicState.frameIndex]?.date ?? '') : '';
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
-    q.set('record', track.id);
-    q.set('date', track.dates[frameIndex] ?? track.dates[0]!);
+    q.set('record', eicId ? `eic-${eicId}` : track.id);
+    if (eicId) {
+      if (eicFrameDate) q.set('date', eicFrameDate);
+      else q.delete('date');
+    } else q.set('date', track.dates[frameIndex] ?? track.dates[0]!);
     window.history.replaceState(null, '', `${window.location.pathname}?${q.toString()}`);
-  }, [track, frameIndex]);
+  }, [track, frameIndex, eicId, eicFrameDate]);
 
   const mapping = useMemo(
     () => buildMapping(PRESETS[preset], track.range, { scale, rootMidi, outliers: track.accents }),
@@ -221,6 +285,7 @@ export function App() {
     try {
       setAudioError(null);
       setMode('scan');
+      eic.pause();
       await player.play();
       setPlaying(true);
       const l = live.current;
@@ -228,7 +293,7 @@ export function App() {
     } catch (e) {
       setAudioError(e instanceof Error ? e.message : String(e));
     }
-  }, [player, urgent]);
+  }, [player, urgent, eic]);
 
   // Tour timers live here (declared before pause so pausing can cancel them).
   const [touring, setTouring] = useState(false);
@@ -238,16 +303,21 @@ export function App() {
     tourTimers.current = [];
     setTouring(false);
   }, []);
+  const stopTourRef = useRef(stopTour);
+  useLayoutEffect(() => {
+    stopTourRef.current = stopTour;
+  });
 
   const pause = useCallback(
     async (reason?: string) => {
       // Any pause ends the demo tour, so no later timer can resume audio without a gesture.
       stopTour();
+      eic.pause();
       await player.pause();
       setPlaying(false);
       urgent(reason ?? 'Paused.');
     },
-    [player, urgent, stopTour],
+    [player, urgent, stopTour, eic],
   );
 
   const togglePlay = useCallback(() => {
@@ -260,10 +330,14 @@ export function App() {
     const onVis = () => {
       // Covers explore mode too: any running audio stops when the tab is hidden.
       if (document.hidden && player.engine.started) void pause('Paused because the tab was hidden.');
+      if (document.hidden && eic.getState().playing) {
+        void eic.suspend();
+        urgent('Paused because the tab was hidden.');
+      }
     };
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
-  }, [pause, player]);
+  }, [pause, player, eic, urgent]);
 
   const seek = useCallback(
     (i: number) => {
@@ -278,12 +352,54 @@ export function App() {
   );
 
   /** Switch record; it starts at `frame` (default: its first date). */
-  const changeTrack = useCallback((i: number, frame = 0) => {
-    const n = TRACKS.length;
-    setTrackIndex(((i % n) + n) % n);
-    setFrameIndex(frame);
-    setScan(0);
-  }, []);
+  const changeTrack = useCallback(
+    (i: number, frame = 0) => {
+      const n = TRACKS.length;
+      if (eicLive.current.eicId) {
+        eic.pause();
+        eicLive.current = { ...eicLive.current, eicId: null };
+        setEicId(null);
+      }
+      setTrackIndex(((i % n) + n) % n);
+      setFrameIndex(frame);
+      setScan(0);
+    },
+    [eic],
+  );
+
+  /** Open an Earth Information Center record; keeps playing if something was playing. */
+  const selectEic = useCallback(
+    (id: string) => {
+      const wasPlaying = live.current.playing || eic.getState().playing;
+      if (live.current.playing) {
+        stopTourRef.current();
+        void player.pause();
+        setPlaying(false);
+      }
+      setEicExploring(false);
+      // Update the live ref now: a demo-tour step in the same tick must see the new record.
+      eicLive.current = { ...eicLive.current, eicId: id };
+      setEicId(id);
+      setView('player');
+      const ds = EIC_DATASETS.find((d) => d.id === id);
+      if (ds && live.current.narration !== 'off') urgent(`${ds.title}. ${ds.timeSpan}.`);
+      eicPlayWhenLoaded.current = wasPlaying;
+    },
+    [eic, player, urgent],
+  );
+
+  /** [ and ] walk one list: EIC records first, then GIBS records. */
+  const stepRecord = useCallback(
+    (delta: number) => {
+      const id = eicLive.current.eicId;
+      const cur = ALL_RECORDS.findIndex((r) => (r.kind === 'eic' ? r.id === id : !id && r.index === live.current.trackIndex));
+      const n = ALL_RECORDS.length;
+      const next = ALL_RECORDS[(((cur + delta) % n) + n) % n]!;
+      if (next.kind === 'eic') selectEic(next.id);
+      else changeTrack(next.index);
+    },
+    [selectEic, changeTrack],
+  );
 
   /** Go to a record and a date (used by the demo tour). */
   const goTo = useCallback(
@@ -291,7 +407,8 @@ export function App() {
       const ti = TRACKS.findIndex((t) => t.id === trackId);
       if (ti < 0) return;
       const fi = Math.max(0, TRACKS[ti]!.dates.indexOf(date));
-      if (TRACKS[ti]!.id === live.current.track.id) {
+      // From an EIC record, always switch collections (the hidden GIBS player may already be on this record).
+      if (TRACKS[ti]!.id === live.current.track.id && !eicLive.current.eicId) {
         player.seekFrame(fi);
         setFrameIndex(fi);
         setScan(0);
@@ -341,7 +458,18 @@ export function App() {
       switch (a.type) {
         case 'goto':
           return goTo(a.track, a.date);
+        case 'eic': {
+          const frames = eic.loadedFrames;
+          if (eicLive.current.eicId === a.record && frames && eic.getState().dsId === a.record) return eic.seekFrame(nearestFrame(frames, a.date));
+          eicFirstFrame.current = a.date;
+          return selectEic(a.record);
+        }
         case 'play':
+          if (eicLive.current.eicId) {
+            if (eic.getState().status === 'ready' && eic.getState().dsId === eicLive.current.eicId) return void eic.play();
+            eicPlayWhenLoaded.current = true;
+            return;
+          }
           return void play();
         case 'tempo':
           return setTempo(a.value);
@@ -360,7 +488,7 @@ export function App() {
           return void pause('Demo tour finished.');
       }
     },
-    [goTo, play, urgent, probeAt, stopTour, pause, player],
+    [goTo, play, urgent, probeAt, stopTour, pause, player, eic, selectEic],
   );
 
   const toggleTour = useCallback(() => {
@@ -371,14 +499,18 @@ export function App() {
     }
     setView('player');
     setTouring(true);
+    // Later steps run from timers: unlock both audio engines inside this click.
+    eic.unlockAudio();
+    void player.engine.start().then(() => {
+      if (!live.current.playing) void player.engine.stop();
+    });
     if (live.current.narration === 'off') setNarration('changes');
     // The first steps run synchronously inside the click, so audio starts within the user gesture.
     for (const step of TOUR) {
       if (step.at === 0) runTourAction(step.action);
       else tourTimers.current.push(setTimeout(() => runTourAction(step.action), step.at * 1000));
     }
-    void play();
-  }, [touring, stopTour, pause, runTourAction, play]);
+  }, [touring, stopTour, pause, runTourAction, eic, player]);
 
   const onMode = useCallback(
     (m: 'scan' | 'explore') => {
@@ -409,16 +541,112 @@ export function App() {
     [changeTrack, play],
   );
 
+  /** A playlist track started: pause whatever the live jukebox is playing. */
+  const pauseForPlaylist = useCallback(() => {
+    if (eic.getState().playing) eic.pause();
+    if (live.current.playing) void pause('Paused while the playlist track plays.');
+  }, [eic, pause]);
+
+  // ----- EIC transport, explore and time -----
+  const eicToggle = useCallback(async () => {
+    try {
+      setAudioError(null);
+      if (eic.getState().playing) {
+        eic.pause();
+        urgent('Paused.');
+      } else {
+        setEicExploring(false);
+        await eic.play();
+      }
+    } catch (e) {
+      setAudioError(e instanceof Error ? e.message : String(e));
+    }
+  }, [eic, urgent]);
+
+  /** Explore a grid cell: pauses the sweep, plays the place, says where it is. Runs in a gesture. */
+  const eicProbe = useCallback(
+    (r: number, c: number) => {
+      if (eic.getState().playing) eic.pause();
+      setEicExploring(true);
+      setEicCursor({ r, c });
+      try {
+        const text = eic.probe(r, c);
+        if (!text) return;
+        setEicCursorLabel(text);
+        if (eicLive.current.narration !== 'off') urgent(text);
+      } catch (e) {
+        setAudioError(e instanceof Error ? e.message : String(e));
+      }
+    },
+    [eic, urgent],
+  );
+
+  const eicSeek = useCallback(
+    (i: number) => {
+      eic.seekFrame(i);
+      const f = eic.loadedFrames?.[eic.getState().frameIndex];
+      if (f && eicLive.current.narration !== 'off') urgent(`${f.label}.`);
+    },
+    [eic, urgent],
+  );
+
+  const eicCursorRef = useRef(eicCursor);
+  useLayoutEffect(() => {
+    eicCursorRef.current = eicCursor;
+  });
+  const eicDispatch = useCallback(
+    (a: Action) => {
+      switch (a.type) {
+        case 'togglePlay':
+          return void eicToggle();
+        case 'prevTrack':
+          return stepRecord(-1);
+        case 'nextTrack':
+          return stepRecord(1);
+        case 'prevFrame':
+          return eicSeek(eic.getState().frameIndex - 1);
+        case 'nextFrame':
+          return eicSeek(eic.getState().frameIndex + 1);
+        case 'toggleMute':
+          setMuted((m) => {
+            urgent(m ? 'Sound on.' : 'Muted.');
+            return !m;
+          });
+          return;
+        case 'help':
+          return setHelpOpen(true);
+        case 'focusMap':
+          setView('player');
+          if (eic.getState().playing) eic.pause();
+          setEicExploring(true);
+          mapRef.current?.focus();
+          return;
+        case 'describe':
+          return urgent(eic.describeNow());
+        case 'move': {
+          // One grid cell per press (about 5.6°); Shift jumps four cells.
+          const k = Math.abs(a.dx) + Math.abs(a.dy) > 1 ? 4 : 1;
+          const { r, c } = eicCursorRef.current;
+          const nc = (((c + Math.sign(a.dx) * k) % EIC_COLS) + EIC_COLS) % EIC_COLS;
+          const nr = Math.min(EIC_ROWS - 1, Math.max(0, r + Math.sign(a.dy) * k));
+          return eicProbe(nr, nc);
+        }
+      }
+    },
+    [eic, eicToggle, eicSeek, eicProbe, stepRecord, urgent],
+  );
+
   const dispatch = useCallback(
     (a: Action) => {
       const l = live.current;
+      if (eicLive.current.eicId) return eicDispatch(a);
       switch (a.type) {
         case 'togglePlay':
           return togglePlay();
         case 'prevTrack':
-          return changeTrack(trackIndex - 1);
+          return stepRecord(-1);
         case 'nextTrack':
-          return changeTrack(trackIndex + 1);
+          return stepRecord(1);
         case 'prevFrame':
           return seek(l.frameIndex - 1);
         case 'nextFrame':
@@ -449,7 +677,7 @@ export function App() {
         }
       }
     },
-    [togglePlay, changeTrack, trackIndex, seek, urgent, enterExplore, description, probeAt],
+    [togglePlay, stepRecord, seek, urgent, enterExplore, description, probeAt, eicDispatch],
   );
 
   useEffect(() => {
@@ -465,7 +693,7 @@ export function App() {
   }, [dispatch, helpOpen, stopTour]);
 
   const stepMs = Math.round(1000 / tempo);
-  const noticeText = initial.notice && trackIndex === initial.track ? initial.notice : undefined;
+  const noticeText = initial.notice && (initial.eic ? eicId === initial.eic : !eicId && trackIndex === initial.track) ? initial.notice : undefined;
   const offlineBannerText = data.offline
     ? `Offline mode: you are hearing the bundled copies of the NASA GIBS images${manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.`
     : data.fallbackReason
@@ -486,15 +714,70 @@ export function App() {
     >
       {view === 'library' ? (
         <LibraryView
+          eic={{
+            records: EIC_DATASETS.map((d) => ({ id: d.id, title: d.title, subtitle: d.timeSpan, source: `NASA SVS #${d.svsId}`, hear: d.hearing.slice(0, 2).join(' ') })),
+            current: eicId,
+            playing: eicState.playing,
+            onOpen: (id) => selectEic(id),
+            onPlay: (id) => {
+              if (eicId === id) {
+                setView('player');
+                void eicToggle();
+                return;
+              }
+              selectEic(id);
+              eicPlayWhenLoaded.current = true;
+            },
+          }}
           tracks={TRACKS}
-          current={trackIndex}
+          current={eicId ? -1 : trackIndex}
           playing={playing}
           onPlayTrack={playTrackFromLibrary}
-          onPauseCurrent={() => void pause()}
+          onExternalAudio={pauseForPlaylist}
+          onPauseCurrent={() => (eicId ? (eic.pause(), urgent('Paused.')) : void pause())}
           onOpenRecord={openRecord}
+        />
+      ) : eicId ? (
+        <EicPlayerView
+          ref={mapRef}
+          session={eic}
+          state={eicState}
+          dataset={EIC_DATASETS.find((d) => d.id === eicId)!}
+          records={EIC_RECORDS}
+          onSelectEic={selectEic}
+          tracks={TRACKS}
+          onSelectTrack={changeTrack}
+          onBrowseAll={() => setView('library')}
+          notice={noticeText}
+          audioError={audioError}
+          cursor={eicCursor}
+          cursorLabel={eicCursorLabel}
+          exploring={eicExploring}
+          onProbe={eicProbe}
+          onMapFocus={() => {
+            if (eic.getState().playing) eic.pause();
+            setEicExploring(true);
+          }}
+          onToggle={() => void eicToggle()}
+          onPrevRecord={() => stepRecord(-1)}
+          onNextRecord={() => stepRecord(1)}
+          onMode={(m) => {
+            eic.setPreferredMode(m);
+            if (narration !== 'off') urgent(m === 'orchestra' ? 'Orchestra mode.' : 'Scientific mode.');
+          }}
+          volume={volume}
+          onVolume={setVolume}
+          muted={muted}
+          onMute={() => setMuted((m) => !m)}
+          narration={narration}
+          onNarration={setNarration}
+          onOpenHelp={() => setHelpOpen(true)}
+          onExternalAudio={pauseForPlaylist}
         />
       ) : (
         <PlayerView
+          eicRecords={EIC_RECORDS}
+          onSelectEic={selectEic}
           tracks={TRACKS}
           trackIndex={trackIndex}
           track={track}
@@ -533,8 +816,8 @@ export function App() {
           liveBands={liveBands}
           canPlay={!!frame}
           onToggle={togglePlay}
-          onPrevTrack={() => changeTrack(trackIndex - 1)}
-          onNextTrack={() => changeTrack(trackIndex + 1)}
+          onPrevTrack={() => stepRecord(-1)}
+          onNextTrack={() => stepRecord(1)}
           tempo={tempo}
           onTempo={setTempo}
           preset={preset}
@@ -558,7 +841,16 @@ export function App() {
           description={description}
         />
       )}
-      <HowToListenSheet open={helpOpen} onClose={() => setHelpOpen(false)} track={track} frame={frame} legend={data.legend} legendWarning={data.legendWarning} manifest={manifest} />
+      <HowToListenSheet
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        track={track}
+        frame={frame}
+        legend={data.legend}
+        legendWarning={data.legendWarning}
+        manifest={manifest}
+        eic={eicId ? { dataset: EIC_DATASETS.find((d) => d.id === eicId)!, mode: eicState.activeMode } : undefined}
+      />
       <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="narrator">
         {message}
       </div>
