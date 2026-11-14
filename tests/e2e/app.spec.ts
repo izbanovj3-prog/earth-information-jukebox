@@ -1,11 +1,16 @@
 import { TRACKS } from '../../src/data/catalog';
 import { audioStats, expect, expectNoSeriousA11yViolations, gibsLog, test, waitForFrame } from './fixtures';
 
+/** The track rail (left column) is the scoped place to select records by title; the side panel
+ * and track library repeat the same title text, so unscoped text queries would be ambiguous. */
+const trackRail = (page: import('@playwright/test').Page) => page.getByRole('complementary', { name: 'Dataset track selector' });
+
 test.describe('Earth Information Jukebox', () => {
   test('loads with disclaimer, records and a live (mocked) GIBS frame; no audio before a gesture', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Jukebox');
-    await expect(page.getByText('Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.').first()).toBeVisible();
+    // The same disclaimer also appears (hidden) inside the closed how-to-listen dialog; the footer is the always-visible copy.
+    await expect(page.getByRole('contentinfo').getByText('Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.')).toBeVisible();
     await expect(page.getByRole('radio')).toHaveCount(TRACKS.length + 2); // records + scan/explore
     await waitForFrame(page);
     await expect(page.getByText('Live · NASA GIBS')).toBeVisible();
@@ -68,12 +73,13 @@ test.describe('Earth Information Jukebox', () => {
     await expect(page).toHaveURL(new RegExp(`date=${TRACKS[1]!.dates[1]}`));
 
     await page.keyboard.press('?');
-    await expect(page.getByRole('dialog', { name: /Keyboard and Screen-Reader Help/ })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: 'How to listen' })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).toBeHidden();
 
+    await page.getByText('Sound settings', { exact: true }).click();
     await page.keyboard.press('m');
-    await expect(page.getByRole('button', { name: 'Mute' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByRole('button', { name: 'Mute [M]' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('shortcuts never steal keys from focused controls', async ({ page }) => {
@@ -147,6 +153,7 @@ test.describe('Earth Information Jukebox', () => {
   test('narration Off keeps the live region quiet; menus keep their letter keys', async ({ page }) => {
     await page.goto('/');
     await waitForFrame(page);
+    await page.getByText('Sound settings', { exact: true }).click();
     await page.getByRole('combobox', { name: 'Spoken narration' }).selectOption('off');
     const key = page.getByRole('combobox', { name: 'Key' });
     await key.focus();
@@ -176,24 +183,45 @@ test.describe('Earth Information Jukebox', () => {
     await page.goto('/');
     await waitForFrame(page);
     for (const [i, t] of TRACKS.entries()) {
-      if (i > 0) await page.getByText(t.title, { exact: true }).click();
+      if (i > 0) await trackRail(page).getByText(t.title, { exact: true }).click();
       await expect(page.locator('#now-h')).toHaveText(t.title);
       await waitForFrame(page);
       await expectNoSeriousA11yViolations(page, `record ${t.id}`);
     }
   });
 
-  test('axe-clean in explore mode, with sources open and with the help dialog', async ({ page }) => {
+  test('axe-clean in explore mode and with the how-to-listen sheet open', async ({ page }) => {
     await page.goto('/');
     await waitForFrame(page);
-    await page.getByRole('radio', { name: 'Explore' }).check();
+    await page.locator('label', { has: page.getByRole('radio', { name: 'Explore' }) }).click();
     await page.getByRole('application').click({ position: { x: 100, y: 60 } });
     await expectNoSeriousA11yViolations(page, 'explore');
-    await page.getByText('Sources and Limits').click();
-    await expect(page.getByText('Sound is an interpretation of the image, not a measurement.')).toBeVisible();
-    await expectNoSeriousA11yViolations(page, 'sources open');
-    await page.getByRole('button', { name: /Keyboard Help/ }).click();
-    await expectNoSeriousA11yViolations(page, 'help dialog');
+    const trigger = page.getByRole('button', { name: /How to listen/ }).first();
+    await trigger.click();
+    const sheet = page.getByRole('dialog', { name: 'How to listen' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Sound is an interpretation of the image, not a measurement.')).toBeVisible();
+    await expectNoSeriousA11yViolations(page, 'how-to-listen sheet open');
+    await sheet.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toBeHidden();
+    await expect(trigger).toBeFocused(); // focus returns to the trigger
+  });
+
+  test('track library: browse, filter and play a record from the catalog', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.getByRole('button', { name: /Browse all records/ }).click();
+    await expect(page.getByRole('heading', { name: 'Choose a record' })).toBeVisible();
+    await expectNoSeriousA11yViolations(page, 'track library');
+
+    await page.getByLabel('Filter records').fill('vegetation');
+    await expect(page.getByRole('button', { name: 'Green Pulse' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fever Pitch' })).toHaveCount(0);
+    await page.getByLabel('Filter records').fill('');
+
+    await page.getByRole('button', { name: 'Play', exact: true }).first().click();
+    await expect(page.getByRole('heading', { name: 'Choose a record' })).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
   });
 });
 
@@ -277,7 +305,7 @@ test.describe('reduced motion', () => {
   test('disables decorative animation', async ({ page }) => {
     await page.goto('/');
     await waitForFrame(page);
-    const dur = await page.locator('[class*=tube]').evaluate((el) => getComputedStyle(el).animationDuration);
+    const dur = await page.locator('[class*=tube]').first().evaluate((el) => getComputedStyle(el).animationDuration);
     expect(parseFloat(dur)).toBeLessThan(0.01);
   });
 });

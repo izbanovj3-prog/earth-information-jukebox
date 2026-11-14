@@ -1,9 +1,3 @@
-import '@fontsource/bungee/400.css';
-import '@fontsource/atkinson-hyperlegible/400.css';
-import '@fontsource/atkinson-hyperlegible/700.css';
-import '@fontsource/atkinson-hyperlegible-mono/400.css';
-import './global.css';
-
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { keyInputFromEvent, resolveShortcut, type Action } from '../a11y/keymap';
 import { describeColumn, describeFrame, describeFrameChange, describePlaying, describeProbe, Throttle } from '../a11y/narration';
@@ -16,13 +10,12 @@ import { BASE_URL, loadManifest, type Manifest } from '../data/loader';
 import { buildMapping, DEFAULT_ROOT_MIDI, PRESETS, type Preset } from '../sonify/mapping';
 import { frameStats } from '../sonify/sample';
 import type { ScaleName } from '../types';
-import styles from './App.module.css';
-import { Carousel } from './Carousel';
-import { HelpDialog } from './HelpDialog';
-import { Marquee } from './Marquee';
-import { HowToListen, LegendBar, NowPlaying, SourcesPanel } from './Panels';
-import { Screen } from './Screen';
-import { Transport, type NarrationMode } from './Transport';
+import { AppShell } from './AppShell';
+import { HowToListenSheet } from './HowToListenSheet';
+import { LibraryView } from './LibraryView';
+import type { LiveBand } from './SidePanel';
+import { PlayerView } from './PlayerView';
+import type { NarrationMode } from './Transport';
 import { TOUR, type TourAction } from './tour';
 import { useTrackFrames } from './useTrackFrames';
 
@@ -38,7 +31,7 @@ function useAnnouncer() {
   // Alternate a trailing no-break space so identical messages are still announced.
   const announce = useCallback((text: string) => {
     flip.current = !flip.current;
-    setMessage(text + (flip.current ? ' ' : ''));
+    setMessage(text + (flip.current ? ' ' : ''));
   }, []);
   return [message, announce] as const;
 }
@@ -67,6 +60,7 @@ export function App() {
     }
     return { track: t, frame: d, notice: notes.join(' ') };
   });
+  const [view, setView] = useState<'player' | 'library'>('player');
   const [trackIndex, setTrackIndex] = useState(initial.track);
   const [frameIndex, setFrameIndex] = useState(initial.frame);
   const baseTrack = TRACKS[trackIndex]!;
@@ -96,6 +90,11 @@ export function App() {
   const [audioError, setAudioError] = useState<string | null>(null);
   /** Value currently sounding (column mean while scanning, cursor value while exploring). */
   const [nowValue, setNowValue] = useState<number | null>(null);
+  /** Position of the current reading: longitude while scanning, lat+lon while exploring a point. */
+  const [lon, setLon] = useState<number | null>(null);
+  const [lat, setLat] = useState<number | null>(null);
+  /** Per-band value + the real frequency last scheduled for it, for the live band meters. */
+  const [liveBands, setLiveBands] = useState<LiveBand[]>([]);
   const [message, announce] = useAnnouncer();
   const mapRef = useRef<HTMLDivElement>(null);
   const throttle = useRef(new Throttle(NARRATION_INTERVAL_MS));
@@ -204,6 +203,9 @@ export function App() {
         const l = live.current;
         setScan((last.column + 0.5) / STEPS);
         setNowValue(last.sample.meanValue);
+        setLon(last.sample.lon);
+        setLat(null); // scanning covers whole bands, not one latitude point
+        setLiveBands(last.sample.bands.map((b, i) => ({ value: b.value, freq: last.notes.find((n) => n.band === i)?.freq ?? null })));
         const text = describeColumn(l.track, last.sample, prev?.frameIndex === last.frameIndex ? prev.sample : undefined, last.notes);
         setHearing(text);
         if (l.narration === 'detailed' && throttle.current.allow()) announce(text);
@@ -321,6 +323,8 @@ export function App() {
         setCursorLabel(text);
         setHearing(`Explore cursor at ${text}.`);
         setNowValue(r.value);
+        setLat(r.lat);
+        setLon(r.lon);
         if (l.narration !== 'off') urgent(text);
       } catch (e) {
         setAudioError(e instanceof Error ? e.message : String(e));
@@ -365,6 +369,7 @@ export function App() {
       void pause('Demo tour stopped.');
       return;
     }
+    setView('player');
     setTouring(true);
     if (live.current.narration === 'off') setNarration('changes');
     // The first steps run synchronously inside the click, so audio starts within the user gesture.
@@ -385,6 +390,23 @@ export function App() {
       }
     },
     [enterExplore],
+  );
+
+  const openPlayer = useCallback(() => setView('player'), []);
+  const openRecord = useCallback(
+    (i: number) => {
+      changeTrack(i);
+      setView('player');
+    },
+    [changeTrack],
+  );
+  const playTrackFromLibrary = useCallback(
+    (i: number) => {
+      changeTrack(i);
+      setView('player');
+      void play();
+    },
+    [changeTrack, play],
   );
 
   const dispatch = useCallback(
@@ -410,6 +432,7 @@ export function App() {
         case 'help':
           return setHelpOpen(true);
         case 'focusMap':
+          setView('player');
           enterExplore();
           mapRef.current?.focus();
           return;
@@ -442,130 +465,103 @@ export function App() {
   }, [dispatch, helpOpen, stopTour]);
 
   const stepMs = Math.round(1000 / tempo);
+  const noticeText = initial.notice && trackIndex === initial.track ? initial.notice : undefined;
+  const offlineBannerText = data.offline
+    ? `Offline mode: you are hearing the bundled copies of the NASA GIBS images${manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.`
+    : data.fallbackReason
+      ? `Live NASA GIBS imagery is unavailable right now, so you are hearing bundled copies of the same NASA images${manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.`
+      : undefined;
 
   return (
-    <>
-      <a className="skip-link" href="#player">
-        Skip to the player
-      </a>
-      <Marquee onHelp={() => setHelpOpen(true)} onTour={toggleTour} touring={touring} />
-      <main className={styles.cabinet} id="main">
-        <div className={styles.records}>
-          <Carousel tracks={TRACKS} selected={trackIndex} playing={playing} onSelect={changeTrack} />
-        </div>
-
-        <div className={styles.center} id="player" tabIndex={-1}>
-          {initial.notice && trackIndex === initial.track && (
-            <p className={styles.banner} role="status">
-              {initial.notice}
-            </p>
-          )}
-          {data.offline ? (
-            <p className={styles.banner} role="status">
-              Offline mode: you are hearing the bundled copies of the NASA GIBS images
-              {manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.
-            </p>
-          ) : (
-            data.fallbackReason && (
-              <p className={styles.banner} role="status">
-                Live NASA GIBS imagery is unavailable right now, so you are hearing bundled copies of the same NASA images
-                {manifest ? ` (downloaded ${manifest.generated.slice(0, 10)})` : ''}.
-              </p>
-            )
-          )}
-          {data.legendWarning && (
-            <p className={styles.banner} role="status">
-              {data.legendWarning}
-            </p>
-          )}
-          {audioError && (
-            <p className={styles.error} role="alert">
-              Sound could not start ({audioError}). Press Play again; if it stays silent, check that this browser tab is not muted
-              and that your device volume is up.
-            </p>
-          )}
-          <Screen
-            ref={mapRef}
-            frame={frame}
-            legend={data.legend}
-            basemapUrl={BASEMAP}
-            dateLabel={dateLabel}
-            status={frame ? 'ready' : frameError ? 'error' : 'loading'}
-            loaded={data.loaded}
-            total={track.dates.length}
-            error={frameError}
-            onRetry={data.retry}
-            mode={mode}
-            scan={scan}
-            stepMs={stepMs}
-            playing={playing}
-            cursor={cursor}
-            cursorLabel={cursorLabel}
-            descriptionId="frame-desc"
-            onProbe={(x, y, gesture) => void probeAt(x, y, gesture)}
-            onMapFocus={enterExplore}
-          />
-          <LegendBar legend={data.legend} track={track} marker={nowValue} />
-          <Transport
-            playing={playing}
-            canPlay={!!frame}
-            onToggle={togglePlay}
-            onPrevTrack={() => changeTrack(trackIndex - 1)}
-            onNextTrack={() => changeTrack(trackIndex + 1)}
-            mode={mode}
-            onMode={onMode}
-            frameIndex={frameIndex}
-            frameCount={track.dates.length}
-            loadedCount={data.loaded}
-            dateLabels={dateLabels}
-            onSeek={seek}
-            timelapse={timelapse}
-            onTimelapse={setTimelapse}
-            tempo={tempo}
-            onTempo={setTempo}
-            preset={preset}
-            onPreset={(p) => {
-              setPreset(p);
-              setScale(PRESETS[p].scale);
-              setTempo(PRESETS[p].tempo);
-            }}
-            scale={scale}
-            onScale={setScale}
-            rootMidi={rootMidi}
-            onRoot={setRootMidi}
-            volume={volume}
-            onVolume={setVolume}
-            muted={muted}
-            onMute={() => setMuted((m) => !m)}
-            narration={narration}
-            onNarration={setNarration}
-          />
-          <section className={styles.describe} aria-labelledby="desc-h">
-            <h2 id="desc-h" className={styles.h2}>
-              What This Frame Shows
-            </h2>
-            <p id="frame-desc">{description}</p>
-          </section>
-        </div>
-
-        <div className={styles.side}>
-          <NowPlaying track={track} index={trackIndex} dateLabel={dateLabel} hearing={hearing} />
-          <HowToListen track={track} />
-        </div>
-
-        <div className={styles.full}>
-          <SourcesPanel track={track} frame={frame} legend={data.legend} legendWarning={data.legendWarning} manifest={manifest} />
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <p>
-          Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product. Data: NASA GIBS. Code: Apache-2.0.
-        </p>
-      </footer>
-      <HelpDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
-      <div className="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="narrator">
+    <AppShell
+      view={view}
+      onOpenPlayer={openPlayer}
+      volume={volume}
+      onVolume={setVolume}
+      muted={muted}
+      onMute={() => setMuted((m) => !m)}
+      touring={touring}
+      onTour={toggleTour}
+      onHelp={() => setHelpOpen(true)}
+    >
+      {view === 'library' ? (
+        <LibraryView
+          tracks={TRACKS}
+          current={trackIndex}
+          playing={playing}
+          onPlayTrack={playTrackFromLibrary}
+          onPauseCurrent={() => void pause()}
+          onOpenRecord={openRecord}
+        />
+      ) : (
+        <PlayerView
+          tracks={TRACKS}
+          trackIndex={trackIndex}
+          track={track}
+          onSelectTrack={changeTrack}
+          onBrowseAll={() => setView('library')}
+          notice={noticeText}
+          offlineBanner={offlineBannerText}
+          legendWarning={data.legendWarning}
+          audioError={audioError}
+          ref={mapRef}
+          frame={frame}
+          legend={data.legend}
+          basemapUrl={BASEMAP}
+          dateLabel={dateLabel}
+          screenStatus={frame ? 'ready' : frameError ? 'error' : 'loading'}
+          frameError={frameError}
+          onRetry={data.retry}
+          mode={mode}
+          onMode={onMode}
+          scan={scan}
+          stepMs={stepMs}
+          playing={playing}
+          cursor={cursor}
+          cursorLabel={cursorLabel}
+          onProbe={(x, y, gesture) => void probeAt(x, y, gesture)}
+          onMapFocus={enterExplore}
+          frameIndex={frameIndex}
+          loadedCount={data.loaded}
+          dateLabels={dateLabels}
+          onSeek={seek}
+          timelapse={timelapse}
+          onTimelapse={setTimelapse}
+          nowValue={nowValue}
+          lat={lat}
+          lon={lon}
+          liveBands={liveBands}
+          canPlay={!!frame}
+          onToggle={togglePlay}
+          onPrevTrack={() => changeTrack(trackIndex - 1)}
+          onNextTrack={() => changeTrack(trackIndex + 1)}
+          tempo={tempo}
+          onTempo={setTempo}
+          preset={preset}
+          onPreset={(pr) => {
+            setPreset(pr);
+            setScale(PRESETS[pr].scale);
+            setTempo(PRESETS[pr].tempo);
+          }}
+          scale={scale}
+          onScale={setScale}
+          rootMidi={rootMidi}
+          onRoot={setRootMidi}
+          volume={volume}
+          onVolume={setVolume}
+          muted={muted}
+          onMute={() => setMuted((m) => !m)}
+          narration={narration}
+          onNarration={setNarration}
+          hearing={hearing}
+          onOpenHelp={() => setHelpOpen(true)}
+          description={description}
+        />
+      )}
+      <HowToListenSheet open={helpOpen} onClose={() => setHelpOpen(false)} track={track} frame={frame} legend={data.legend} legendWarning={data.legendWarning} manifest={manifest} />
+      <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="narrator">
         {message}
       </div>
-    </>
+    </AppShell>
   );
 }
