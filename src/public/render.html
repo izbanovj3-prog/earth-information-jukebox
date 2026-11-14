@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Playlist Renderer</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="wrap" style="padding:24px 16px">
+    <h1>Earth Jukebox: playlist renderer</h1>
+    <p>Renders every visualization offline in both modes (Orchestra and Scientific) with the same engine as the live jukebox, encodes them as Opus/WebM, and saves them to <code>assets/playlist/</code> through the local server.</p>
+    <button id="go" type="button" class="primary">Render all tracks</button>
+    <ol id="log" aria-live="polite"></ol>
+  </main>
+  <script type="module">
+    import { DATASETS } from './js/datasets.js';
+    import { loadDataset } from './js/analyze.js';
+    import { renderOffline } from './js/engine.js';
+    import { loadSamples, orchestraFor, sweepForBpm } from './js/orchestra.js';
+    import { encodeOpusWebm } from './js/webm.js';
+
+    const log = (msg) => { const li = document.createElement('li'); li.textContent = msg; document.getElementById('log').appendChild(li); return li; };
+    const params = new URLSearchParams(location.search);
+    const only = params.get('only') ? params.get('only').split(',') : null; // e.g. ?only=nightlights,lightning
+    const modes = (params.get('modes') || 'orchestra,science').split(',');
+
+    async function renderAll() {
+      const results = [];
+      const samples = await loadSamples(new OfflineAudioContext(1, 1, 48000), (i, n) => { if (i === n) log(`Orchestra samples loaded (${n} files).`); });
+      for (const [i, ds] of DATASETS.entries()) {
+        if (only && !only.includes(ds.id)) continue;
+        const li = log(`${ds.title}: loading frames…`);
+        const frames = await loadDataset(ds, (m) => { li.textContent = `${ds.title}: ${m}`; });
+        for (const mode of modes) {
+          li.textContent = `${ds.title}: rendering ${mode} (${frames.length} frames)…`;
+          const sweep = mode === 'orchestra' ? sweepForBpm(orchestraFor(ds.id).bpm) : 5;
+          const buf = await renderOffline(ds, frames, { sweep, mode, samples, sampleRate: 48000 });
+          li.textContent = `${ds.title}: encoding ${mode}…`;
+          const blob = await encodeOpusWebm(buf);
+          const name = `${String(i + 1).padStart(2, '0')}-${ds.id}-${mode}.webm`;
+          const res = await fetch(`/api/save?name=${name}`, { method: 'POST', body: blob });
+          if (!res.ok) throw new Error(`save failed: ${res.status}`);
+          log(`${ds.title} · ${mode}: saved ${name} (${Math.round(buf.duration)} s, ${(blob.size / 1e6).toFixed(1)} MB)`);
+          results.push({ file: name, dataset: ds.id, mode, title: ds.title, seconds: Math.round(buf.duration), frames: frames.map((f) => f.label) });
+        }
+        li.remove();
+      }
+      if (!only) await fetch('/api/save?name=playlist.json', { method: 'POST', body: JSON.stringify(results, null, 2) });
+      log('All done.');
+      window.__renderDone = results;
+    }
+    const go = document.getElementById('go');
+    go.addEventListener('click', () => {
+      if (go.disabled) return;
+      go.disabled = true;
+      document.getElementById('log').innerHTML = '';
+      renderAll()
+        .catch((e) => { console.error(e); log(`Error: ${e.message}`); window.__renderDone = { error: e.message }; })
+        .finally(() => { go.disabled = false; });
+    });
+    if (location.hash === '#auto') go.click();
+  </script>
+</body>
+</html>

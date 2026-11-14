@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Frame Baker</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <main class="wrap" style="padding:24px 16px">
+    <h1>Earth Jukebox: frame baker</h1>
+    <p>Loads every dataset from NASA SVS through the local server, runs the same analysis as the jukebox, and saves the display pictures (JPEG) plus the analysed features (JSON) to <code>assets/baked/</code>. <code>npm run build</code> then packs them into the static site for GitHub Pages, which can't run the NASA proxy.</p>
+    <button id="go" type="button" class="primary">Bake all datasets</button>
+    <ol id="log" aria-live="polite"></ol>
+  </main>
+  <script type="module">
+    import { DATASETS } from './js/datasets.js';
+    import { loadRawFrames, thumbUrl, f32ToB64 } from './js/analyze.js';
+
+    const DISPLAY_W = 1600, THUMB_W = 480, QUALITY = 0.86;
+    const log = (msg) => { const li = document.createElement('li'); li.textContent = msg; document.getElementById('log').appendChild(li); return li; };
+    const params = new URLSearchParams(location.search);
+    const only = params.get('only') ? params.get('only').split(',') : null;
+
+    function loadImage(url) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error(`Could not load ${url.slice(0, 80)}`));
+        img.src = url;
+      });
+    }
+    async function jpeg(url, maxW) {
+      const img = await loadImage(url);
+      const w = Math.min(maxW, img.naturalWidth), h = Math.round((w * img.naturalHeight) / img.naturalWidth);
+      const cv = document.createElement('canvas');
+      cv.width = w; cv.height = h;
+      const g = cv.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, 0, 0, w, h);
+      return new Promise((resolve) => cv.toBlob(resolve, 'image/jpeg', QUALITY));
+    }
+    async function save(rel, body) {
+      const res = await fetch(`api/bake?path=${encodeURIComponent(rel)}`, { method: 'POST', body });
+      if (!res.ok) throw new Error(`save ${rel} failed: ${res.status}`);
+      return body.size ?? body.length;
+    }
+
+    async function bakeAll() {
+      const summary = {};
+      for (const ds of DATASETS) {
+        if (only && !only.includes(ds.id)) continue;
+        const li = log(`${ds.title}: loading…`);
+        const frames = await loadRawFrames(ds, (m) => { li.textContent = `${ds.title}: ${m}`; });
+        let bytes = 0;
+        const out = [];
+        for (const [i, f] of frames.entries()) {
+          li.textContent = `${ds.title}: saving frame ${i + 1} of ${frames.length}…`;
+          const img = `${String(i).padStart(2, '0')}.jpg`;
+          bytes += await save(`${ds.id}/${img}`, await jpeg(f.url, DISPLAY_W));
+          out.push({ label: f.label, date: f.date, img, ch: Object.fromEntries(Object.entries(f.ch).map(([k, a]) => [k, f32ToB64(a)])) });
+        }
+        bytes += await save(`${ds.id}/thumb.jpg`, await jpeg(thumbUrl(ds), THUMB_W));
+        const json = JSON.stringify({ id: ds.id, bakedAt: new Date().toISOString(), frames: out });
+        bytes += await save(`${ds.id}.json`, new Blob([json], { type: 'application/json' }));
+        li.textContent = `${ds.title}: ${frames.length} frames baked (${(bytes / 1e6).toFixed(1)} MB)`;
+        summary[ds.id] = { frames: frames.length, mb: +(bytes / 1e6).toFixed(2) };
+      }
+      log('All done.');
+      window.__bakeDone = summary;
+    }
+    const go = document.getElementById('go');
+    go.addEventListener('click', () => {
+      if (go.disabled) return;
+      go.disabled = true;
+      document.getElementById('log').innerHTML = '';
+      bakeAll()
+        .catch((e) => { console.error(e); log(`Error: ${e.message}`); window.__bakeDone = { error: e.message }; })
+        .finally(() => { go.disabled = false; });
+    });
+    if (location.hash === '#auto') go.click();
+  </script>
+</body>
+</html>
