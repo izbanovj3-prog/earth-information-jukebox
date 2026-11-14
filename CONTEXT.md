@@ -6,6 +6,12 @@ Living document. Updated at every plan step.
 
 - Live site: https://izbanovj3-prog.github.io/earth-information-jukebox/ (GitHub Pages, deployed by `.github/workflows/pages.yml` on every push to `main`)
 - Repository: https://github.com/izbanovj3-prog/earth-information-jukebox
+- Releases on `main` (each push redeploys GitHub Pages):
+  - `85792e6ea2dda3f09efbd81a67129a9d0fea98c1`: merge of `merge/best-of-both` (EIC records, orchestra, mixer, trend chart, playlist, WAV export, tour, Pages workflow). Rollback: `git revert -m 1 85792e6 && git push origin main`.
+  - `1c5da0cec2f1dea8ff689798146059fe44019474`: merge of `fix/sample-fetch-retry` (20 s timeout and up to 3 retries per orchestra sample fetch after a transient Pages 503; header shows the real 98 s tour length). Rollback: `git revert -m 1 1c5da0c && git push origin main`.
+  - `1ebf00f0f1c8ead2f3d4f0e208ac963e12609ebe`: merge of `feat/instant-export` ("Download this soundscape" hands over the ready-made standard mix for the record and mode at once; "Render with my mixer settings" makes a WAV with progress, Cancel, clear errors and a 90 s no-progress stop). Rollback: `git revert -m 1 1ebf00f && git push origin main`.
+- **Final rollback command (latest release):** `git revert -m 1 1ebf00f && git push origin main` (the push redeploys GitHub Pages with the previous release; revert the earlier merges the same way, newest first, to go further back).
+- **Feature freeze from 2026-11-14 (after `1ebf00f`):** only critical bug fixes and docs, each with the team lead's approval.
 
 NASA Space Apps Challenge 2026 — "The Earth Information Jukebox". Build a web app that pairs
 NASA Earth imagery frames (from GIBS, the programmatic source behind many Earth Information Center
