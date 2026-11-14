@@ -25,13 +25,16 @@ Coastline data © OpenStreetMap contributors, available under the Open Database 
 
 ## Fonts
 
-All three fonts ship with the app through Fontsource packages (`@fontsource/*`, version 5.3.0) and use the SIL Open Font License 1.1.
+All four fonts ship with the app through Fontsource packages (`@fontsource/*`, version 5.3.0) and use the SIL Open Font License 1.1.
 
 | Font | Copyright | Use |
 |---|---|---|
-| Bungee | Copyright 2023 The Bungee Project Authors (https://github.com/djrrb/Bungee) | Display headings |
-| Atkinson Hyperlegible | Copyright 2020 Braille Institute of America, Inc. | Body text |
+| Libre Caslon Text | Copyright 2015 The Libre Caslon Text Project Authors | Headlines (record titles, sheet heading) |
+| Hanken Grotesk | Copyright 2022 The Hanken Grotesk Project Authors | UI chrome: labels, buttons, chips, nav |
+| Atkinson Hyperlegible | Copyright 2020 Braille Institute of America, Inc. | Long-form body text (accessibility override — see `.stitch/DESIGN.md`) |
 | Atkinson Hyperlegible Mono | Copyright 2020-2024 The Atkinson Hyperlegible Mono Project Authors | Readouts and numbers |
+
+Dropped: Bungee (previous display face, superseded by Libre Caslon Text in the 2026-11-14 UI redesign; see CONTEXT.md).
 
 ## Sounds
 
@@ -39,7 +42,11 @@ The app uses no recordings or samples. The Web Audio API synthesizes every sound
 
 ## Images and icons
 
-The app contains no third-party images or icons besides the NASA GIBS imagery above. We drew the inline SVG icons, the vinyl records and the favicon ourselves for this project.
+The app contains no third-party images or icons besides the NASA GIBS imagery above. We drew the inline SVG icons (`src/ui/icons.tsx` and earlier transport controls), the vinyl records and the favicon ourselves for this project. The icon set intentionally does not use Google's Material Symbols font that appears in the Stitch reference designs (`design/reference/`); see `.stitch/DESIGN.md`.
+
+## UI reference designs
+
+Five AI-generated Stitch screens in `design/reference/` (Console Deck, Main Player, Mobile Telemetry Player, Track Library, How to Listen side sheet) were used as an untrusted layout/token/copy reference for the 2026-11-14 redesign — read, never executed, never copied verbatim into `src/`. Their embedded Tailwind config (colors, spacing, radii, type scale) is carried into `src/ui/theme.css`; see `.stitch/DESIGN.md`.
 
 ## Software
 
@@ -50,12 +57,13 @@ Runtime (shipped to the browser; React, React DOM and Scheduler are © Facebook,
 | react | 18.3.1 | MIT |
 | react-dom | 18.3.1 | MIT |
 | scheduler (dependency of react-dom) | 0.23.2 | MIT |
-| @fontsource/bungee, @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-mono | 5.3.0 | OFL-1.1 (fonts) |
+| @fontsource/libre-caslon-text, @fontsource/hanken-grotesk, @fontsource/atkinson-hyperlegible, @fontsource/atkinson-hyperlegible-mono | 5.3.0 | OFL-1.1 (fonts) |
 
-Build and test tools (not shipped):
+Build and test tools (not shipped; Tailwind compiles to a plain CSS file at build time):
 
 | Package | Version | License |
 |---|---|---|
+| tailwindcss, @tailwindcss/vite | 4.3.5 | MIT |
 | vite | 8.3.8 | MIT |
 | @vitejs/plugin-react | 6.3.0 | MIT |
 | typescript | 6.0.3 | Apache-2.0 |
