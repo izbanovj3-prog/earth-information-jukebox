@@ -817,7 +817,16 @@ export function App() {
           description={description}
         />
       )}
-      <HowToListenSheet open={helpOpen} onClose={() => setHelpOpen(false)} track={track} frame={frame} legend={data.legend} legendWarning={data.legendWarning} manifest={manifest} />
+      <HowToListenSheet
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        track={track}
+        frame={frame}
+        legend={data.legend}
+        legendWarning={data.legendWarning}
+        manifest={manifest}
+        eic={eicId ? { dataset: EIC_DATASETS.find((d) => d.id === eicId)!, mode: eicState.activeMode } : undefined}
+      />
       <div className="sr-only" aria-live="polite" aria-atomic="true" data-testid="narrator">
         {message}
       </div>

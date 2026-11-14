@@ -120,6 +120,20 @@ test.describe('Earth Information Center records', () => {
     await expectNoSeriousA11yViolations(page, 'EIC lightning playing from the library');
   });
 
+  test('the how-to-listen sheet explains the EIC sound and credits SVS and the CC0 samples', async ({ page }) => {
+    await page.goto('/');
+    await waitForFrame(page);
+    await page.locator('body').focus();
+    await page.keyboard.press('?');
+    const sheet = page.getByRole('dialog');
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText('For this record: Night Lights 2012 → 2023');
+    await expect(sheet.getByRole('link', { name: /SVS #5313/ })).toHaveAttribute('href', 'https://svs.gsfc.nasa.gov/5313/');
+    await expect(sheet).toContainText('VS Chamber Orchestra 2 Community Edition');
+    await expect(sheet).not.toContainText('no recordings or samples');
+    await expectNoSeriousA11yViolations(page, 'EIC how-to-listen sheet');
+  });
+
   test('every EIC record loads and is axe-clean', async ({ page }) => {
     for (const ds of EIC) {
       await page.goto(`/?record=eic-${ds.id}`);

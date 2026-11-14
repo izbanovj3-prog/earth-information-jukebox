@@ -1,3 +1,5 @@
+import { hearingFor, type SoundMode } from '../eic/session';
+import type { EicDataset } from '../eic/vendor/datasets';
 import { useEffect, useRef } from 'react';
 import { SHORTCUTS } from '../a11y/keymap';
 import type { Track } from '../data/catalog';
@@ -15,6 +17,8 @@ interface Props {
   legend: Legend | null;
   legendWarning?: string;
   manifest: Manifest | null;
+  /** Set while an Earth Information Center record is open: its sound and sources replace the GIBS sections. */
+  eic?: { dataset: EicDataset; mode: SoundMode };
 }
 
 const dtClass = 'col-span-5 font-label-md text-label-md text-primary uppercase self-baseline';
@@ -53,45 +57,67 @@ export function HowToListenSheet(p: Props) {
           </button>
         </div>
 
-        <section aria-labelledby="section-sound-means" className="flex flex-col gap-space-md">
-          <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
-            <h3 className="font-title-md text-title-md uppercase tracking-wider text-on-surface m-0" id="section-sound-means">
-              What the sound means
-            </h3>
-            <span className="font-label-sm text-label-sm text-secondary uppercase">For this record: {p.track.title}</span>
-          </div>
-          <dl className="flex flex-col gap-space-sm m-0">
-            <div className={row}>
-              <dt className={dtClass}>Left to right</dt>
-              <dd className={ddClass}>The scan sweeps the map and pans from your left ear to your right, west to east.</dd>
+        {p.eic ? (
+          <section aria-labelledby="section-sound-means" className="flex flex-col gap-space-md">
+            <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
+              <h3 className="font-title-md text-title-md uppercase tracking-wider text-on-surface m-0" id="section-sound-means">
+                What the sound means
+              </h3>
+              <span className="font-label-sm text-label-sm text-secondary uppercase">
+                For this record: {p.eic.dataset.title} · {p.eic.mode === 'orchestra' ? 'Orchestra' : 'Scientific'}
+              </span>
             </div>
-            <div className={row}>
-              <dt className={dtClass}>Pitch</dt>
-              <dd className={ddClass}>{p.track.pitchHint}. Notes snap to a musical scale.</dd>
+            <ul className="flex flex-col gap-space-xs font-body-md text-body-md text-on-surface list-disc pl-5 m-0">
+              {hearingFor(p.eic.dataset, p.eic.mode).map((h) => (
+                <li key={h}>{h}</li>
+              ))}
+            </ul>
+            <p className="m-0 font-body-md text-body-md text-secondary">
+              Scientific plays at once with synthesizers. Orchestra uses recorded instruments; only the ones this record needs are downloaded, and
+              Scientific plays until they arrive. Your choice is remembered.
+            </p>
+          </section>
+        ) : (
+          <section aria-labelledby="section-sound-means" className="flex flex-col gap-space-md">
+            <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
+              <h3 className="font-title-md text-title-md uppercase tracking-wider text-on-surface m-0" id="section-sound-means">
+                What the sound means
+              </h3>
+              <span className="font-label-sm text-label-sm text-secondary uppercase">For this record: {p.track.title}</span>
             </div>
-            <div className={row}>
-              <dt className={dtClass}>{BANDS.length} voices</dt>
-              <dd className={ddClass}>
-                {BANDS.length} latitude bands, playing in order each step: {BANDS.map((b) => `${b.name} = ${b.timbreWord}`).join(', ')}.
-              </dd>
-            </div>
-            <div className={row}>
-              <dt className={dtClass}>Bell</dt>
-              <dd className={ddClass}>{p.track.accentMeaning}</dd>
-            </div>
-            <div className={row}>
-              <dt className={dtClass}>Silence</dt>
-              <dd className={`${ddClass} text-secondary`}>{p.track.noDataMeans}</dd>
-            </div>
-            <div className={row}>
-              <dt className={dtClass}>Low drone</dt>
-              <dd className={ddClass}>
-                Follows the global {DRONE_METRIC_WORDS[p.track.droneMetric]} compared with the first frame; a change of{' '}
-                {p.track.changeScale} {p.track.display.unit} moves it a full musical fifth (an intentional exaggeration).
-              </dd>
-            </div>
-          </dl>
-        </section>
+            <dl className="flex flex-col gap-space-sm m-0">
+              <div className={row}>
+                <dt className={dtClass}>Left to right</dt>
+                <dd className={ddClass}>The scan sweeps the map and pans from your left ear to your right, west to east.</dd>
+              </div>
+              <div className={row}>
+                <dt className={dtClass}>Pitch</dt>
+                <dd className={ddClass}>{p.track.pitchHint}. Notes snap to a musical scale.</dd>
+              </div>
+              <div className={row}>
+                <dt className={dtClass}>{BANDS.length} voices</dt>
+                <dd className={ddClass}>
+                  {BANDS.length} latitude bands, playing in order each step: {BANDS.map((b) => `${b.name} = ${b.timbreWord}`).join(', ')}.
+                </dd>
+              </div>
+              <div className={row}>
+                <dt className={dtClass}>Bell</dt>
+                <dd className={ddClass}>{p.track.accentMeaning}</dd>
+              </div>
+              <div className={row}>
+                <dt className={dtClass}>Silence</dt>
+                <dd className={`${ddClass} text-secondary`}>{p.track.noDataMeans}</dd>
+              </div>
+              <div className={row}>
+                <dt className={dtClass}>Low drone</dt>
+                <dd className={ddClass}>
+                  Follows the global {DRONE_METRIC_WORDS[p.track.droneMetric]} compared with the first frame; a change of{' '}
+                  {p.track.changeScale} {p.track.display.unit} moves it a full musical fifth (an intentional exaggeration).
+                </dd>
+              </div>
+            </dl>
+          </section>
+        )}
 
         <section aria-labelledby="section-try-it" className="flex flex-col gap-space-md">
           <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
@@ -122,61 +148,87 @@ export function HowToListenSheet(p: Props) {
           </ul>
         </section>
 
-        <section aria-labelledby="section-sources-limits" className="flex flex-col gap-space-md pb-space-lg">
-          <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
-            <h3 className="font-title-md text-title-md uppercase tracking-wider text-on-surface m-0" id="section-sources-limits">
-              Sources and limits
-            </h3>
-            <span className="font-label-sm text-label-sm text-secondary uppercase">{p.track.layerTitle}</span>
-          </div>
-          <div className="flex flex-col gap-space-md font-body-md text-body-md text-on-surface">
-            <div className="p-space-md bg-surface-container-lowest flex flex-col gap-space-xs">
-              <p className="m-0">
-                Data streamed from NASA's Global Imagery Browse Services (GIBS). Layer:{' '}
-                <code className="font-label-sm text-label-sm bg-surface-container text-primary px-1.5 py-0.5 uppercase" translate="no">
-                  {p.track.layerId}
-                </code>
-                , span: <span className="font-label-sm text-label-sm bg-surface-container px-1.5 py-0.5">{p.track.timeRange}</span>.
-              </p>
-              <p className="m-0">
-                {p.frame
-                  ? p.frame.source.mode === 'live'
-                    ? 'This frame: a live request to NASA GIBS just now.'
-                    : `This frame: a bundled copy of the same NASA GIBS image, downloaded ${p.manifest?.generated.slice(0, 10) ?? 'at build time'}.`
-                  : 'Loading this frame…'}{' '}
-                {p.frame && (
-                  <a href={p.frame.source.url} target="_blank" rel="noreferrer" className="text-primary">
-                    Open the exact image request<span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                )}
-              </p>
-              <p className="m-0">
-                {p.legend?.calibrated
-                  ? `Colour scale: the GIBS colormap for this layer (${p.legend.title}${p.legend.units ? `, ${p.legend.units}` : ''}); every pixel colour is matched back to its value.`
-                  : 'Colour scale: relative brightness only — values are NOT calibrated.'}{' '}
-                {m && (
-                  <a href={m.colormapSource} target="_blank" rel="noreferrer" className="text-primary">
-                    Colormap source<span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                )}
-                {p.legendWarning && <span className="text-primary"> {p.legendWarning}</span>}
-              </p>
-              <p className="m-0 text-secondary">Map outlines: coastlines © OpenStreetMap contributors (ODbL), via NASA GIBS. Decorative only; never sonified.</p>
+        {p.eic ? (
+          <section aria-labelledby="section-sources-limits" className="flex flex-col gap-space-md pb-space-lg">
+            <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
+              <h3 className="font-title-md text-title-md uppercase tracking-wider text-on-surface m-0" id="section-sources-limits">
+                Sources and limits
+              </h3>
+              <span className="font-label-sm text-label-sm text-secondary uppercase">NASA SVS #{p.eic.dataset.svsId}</span>
             </div>
-            <ul className="flex flex-col gap-space-xs text-secondary list-none m-0 p-0">
-              <li><strong className="text-on-surface">Sound is an interpretation of the image, not a measurement.</strong> Values are read back from colours at 0.5° resolution and averaged over wide latitude bands.</li>
-              <li>Musical choices (scales, the exaggerated drone, which extremes ring a bell) are design decisions, explained above.</li>
-              <li>Single dates per year (sea ice, sea-surface temperature) are noisy; do not read a trend from two neighbouring frames.</li>
-              <li>The equirectangular map stretches the poles; statistics in the descriptions are area-weighted to correct for this.</li>
-            </ul>
-            <p className="m-0 text-secondary">
-              We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's
-              Earth Science Data and Information System (ESDIS). Fonts, runtime and build tooling are listed in ATTRIBUTION.md in the
-              source repository. All sounds are synthesized live with the Web Audio API; no recordings or samples are used.
-            </p>
-            <p className="m-0 font-bold text-on-surface">{DISCLAIMER}</p>
-          </div>
-        </section>
+            <div className="flex flex-col gap-space-md font-body-md text-body-md text-on-surface">
+              <p className="m-0">
+                Imagery: NASA Scientific Visualization Studio,{' '}
+                <a href={p.eic.dataset.sourceUrl} target="_blank" rel="noreferrer" className="text-primary">
+                  SVS #{p.eic.dataset.svsId}<span className="sr-only"> (opens in a new tab)</span>
+                </a>
+                . {p.eic.dataset.credit}. Frames were downloaded from SVS and analysed ahead of time into a 64 × 32 grid per frame.
+              </p>
+              <ul className="flex flex-col gap-space-xs text-secondary list-none m-0 p-0">
+                <li><strong className="text-on-surface">Sound is an interpretation of the picture, not a measurement.</strong> Colours are read back with each visualization's colour key; values are relative, normalised across all frames of the record so change over time stays audible.</li>
+                <li>Frame dates come from the time range published on each SVS page; lightning dates were measured from the video.</li>
+                <li>Orchestral samples: VS Chamber Orchestra 2 Community Edition by Versilian Studios, CC0 (public domain).</li>
+              </ul>
+              <p className="m-0 font-bold text-on-surface">{DISCLAIMER}</p>
+            </div>
+          </section>
+        ) : (
+          <section aria-labelledby="section-sources-limits" className="flex flex-col gap-space-md pb-space-lg">
+            <div className="flex flex-col gap-space-xs pb-space-sm border-b border-surface-container-highest">
+              <h3 className="font-title-md text-title-md uppercase tracking-wider text-on-surface m-0" id="section-sources-limits">
+                Sources and limits
+              </h3>
+              <span className="font-label-sm text-label-sm text-secondary uppercase">{p.track.layerTitle}</span>
+            </div>
+            <div className="flex flex-col gap-space-md font-body-md text-body-md text-on-surface">
+              <div className="p-space-md bg-surface-container-lowest flex flex-col gap-space-xs">
+                <p className="m-0">
+                  Data streamed from NASA's Global Imagery Browse Services (GIBS). Layer:{' '}
+                  <code className="font-label-sm text-label-sm bg-surface-container text-primary px-1.5 py-0.5 uppercase" translate="no">
+                    {p.track.layerId}
+                  </code>
+                  , span: <span className="font-label-sm text-label-sm bg-surface-container px-1.5 py-0.5">{p.track.timeRange}</span>.
+                </p>
+                <p className="m-0">
+                  {p.frame
+                    ? p.frame.source.mode === 'live'
+                      ? 'This frame: a live request to NASA GIBS just now.'
+                      : `This frame: a bundled copy of the same NASA GIBS image, downloaded ${p.manifest?.generated.slice(0, 10) ?? 'at build time'}.`
+                    : 'Loading this frame…'}{' '}
+                  {p.frame && (
+                    <a href={p.frame.source.url} target="_blank" rel="noreferrer" className="text-primary">
+                      Open the exact image request<span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                  )}
+                </p>
+                <p className="m-0">
+                  {p.legend?.calibrated
+                    ? `Colour scale: the GIBS colormap for this layer (${p.legend.title}${p.legend.units ? `, ${p.legend.units}` : ''}); every pixel colour is matched back to its value.`
+                    : 'Colour scale: relative brightness only — values are NOT calibrated.'}{' '}
+                  {m && (
+                    <a href={m.colormapSource} target="_blank" rel="noreferrer" className="text-primary">
+                      Colormap source<span className="sr-only"> (opens in a new tab)</span>
+                    </a>
+                  )}
+                  {p.legendWarning && <span className="text-primary"> {p.legendWarning}</span>}
+                </p>
+                <p className="m-0 text-secondary">Map outlines: coastlines © OpenStreetMap contributors (ODbL), via NASA GIBS. Decorative only; never sonified.</p>
+              </div>
+              <ul className="flex flex-col gap-space-xs text-secondary list-none m-0 p-0">
+                <li><strong className="text-on-surface">Sound is an interpretation of the image, not a measurement.</strong> Values are read back from colours at 0.5° resolution and averaged over wide latitude bands.</li>
+                <li>Musical choices (scales, the exaggerated drone, which extremes ring a bell) are design decisions, explained above.</li>
+                <li>Single dates per year (sea ice, sea-surface temperature) are noisy; do not read a trend from two neighbouring frames.</li>
+                <li>The equirectangular map stretches the poles; statistics in the descriptions are area-weighted to correct for this.</li>
+              </ul>
+              <p className="m-0 text-secondary">
+                We acknowledge the use of imagery provided by services from NASA's Global Imagery Browse Services (GIBS), part of NASA's
+                Earth Science Data and Information System (ESDIS). Fonts, runtime and build tooling are listed in ATTRIBUTION.md in the
+                source repository. GIBS records are synthesized live with the Web Audio API; no recordings are used for them.
+              </p>
+              <p className="m-0 font-bold text-on-surface">{DISCLAIMER}</p>
+            </div>
+          </section>
+        )}
       </div>
     </dialog>
   );
