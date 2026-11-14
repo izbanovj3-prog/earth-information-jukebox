@@ -21,6 +21,7 @@ import { Marquee } from './Marquee';
 import { HowToListen, LegendBar, NowPlaying, SourcesPanel } from './Panels';
 import { Screen } from './Screen';
 import { Transport, type NarrationMode } from './Transport';
+import { TOUR, type TourAction } from './tour';
 import { useTrackFrames } from './useTrackFrames';
 
 const STEPS = 48;
@@ -115,18 +116,24 @@ export function App() {
   }, []);
 
   // Wire data into the player. Reset to the first frame when the record changes.
+  // A pending target frame for the next record (from ?date= or the demo tour); otherwise records start at frame 0.
   const lastTrack = useRef<string | null>(null);
+  const pendingStart = useRef<{ trackId: string; frame: number } | null>({
+    trackId: TRACKS[initial.track]!.id,
+    frame: initial.frame,
+  });
   useEffect(() => {
     player.setFrames(data.frames);
     if (lastTrack.current !== track.id && data.frames.length === track.dates.length) {
-      // Only the very first record honours ?date=; later record changes start at the first frame.
-      const start = lastTrack.current === null && track.id === TRACKS[initial.track]!.id ? initial.frame : 0;
+      const p = pendingStart.current;
+      const start = p && p.trackId === track.id ? p.frame : 0;
+      pendingStart.current = null;
       lastTrack.current = track.id;
       player.seekFrame(start);
       setFrameIndex(start);
       setScan(0);
     }
-  }, [data.frames, track, player, initial]);
+  }, [data.frames, track, player]);
 
   // Reflect the current record and date in the URL (no history spam).
   useEffect(() => {
@@ -248,6 +255,24 @@ export function App() {
     setTrackIndex(((i % n) + n) % n);
   }, []);
 
+  /** Go to a record and a date (used by the demo tour). */
+  const goTo = useCallback(
+    (trackId: string, date: string) => {
+      const ti = TRACKS.findIndex((t) => t.id === trackId);
+      if (ti < 0) return;
+      const fi = Math.max(0, TRACKS[ti]!.dates.indexOf(date));
+      if (TRACKS[ti]!.id === live.current.track.id) {
+        player.seekFrame(fi);
+        setFrameIndex(fi);
+        setScan(0);
+      } else {
+        pendingStart.current = { trackId, frame: fi };
+        changeTrack(ti);
+      }
+    },
+    [changeTrack, player],
+  );
+
   const enterExplore = useCallback(() => {
     if (live.current.mode !== 'explore') {
       player.holdScan();
@@ -266,6 +291,7 @@ export function App() {
         const l = live.current;
         const text = `${formatLat(r.lat)} ${formatLon(r.lon)}: ${formatValue(l.track, r.value)}${r.value === null ? '' : `, ${levelWord(l.track, r.value)}`}`;
         setCursorLabel(text);
+        setHearing(`Explore cursor at ${text}.`);
         setNowValue(r.value);
         if (l.narration !== 'off') urgent(text);
       } catch (e) {
@@ -274,6 +300,60 @@ export function App() {
     },
     [enterExplore, player, urgent],
   );
+
+  // ----- Demo tour (scripted, ~90 s; starts only from a button press) -----
+  const [touring, setTouring] = useState(false);
+  const tourTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const stopTour = useCallback(() => {
+    tourTimers.current.forEach(clearTimeout);
+    tourTimers.current = [];
+    setTouring(false);
+  }, []);
+  useEffect(() => stopTour, [stopTour]);
+
+  const runTourAction = useCallback(
+    (a: TourAction) => {
+      switch (a.type) {
+        case 'goto':
+          return goTo(a.track, a.date);
+        case 'play':
+          return void play();
+        case 'tempo':
+          return setTempo(a.value);
+        case 'timelapse':
+          // Apply to the player immediately (the effect would lag one render behind the next step).
+          player.setTimelapse(a.on);
+          return setTimelapse(a.on);
+        case 'say':
+          return urgent(a.text);
+        case 'explore': {
+          const x = Math.round(((a.lon + 180) / 360) * 720);
+          const y = Math.round(((90 - a.lat) / 180) * 360);
+          return void probeAt(Math.min(719, x), Math.min(359, y));
+        }
+        case 'end':
+          stopTour();
+          return void pause('Demo tour finished.');
+      }
+    },
+    [goTo, play, urgent, probeAt, stopTour, pause, player],
+  );
+
+  const toggleTour = useCallback(() => {
+    if (touring) {
+      stopTour();
+      void pause('Demo tour stopped.');
+      return;
+    }
+    setTouring(true);
+    if (live.current.narration === 'off') setNarration('changes');
+    // The first steps run synchronously inside the click, so audio starts within the user gesture.
+    for (const step of TOUR) {
+      if (step.at === 0) runTourAction(step.action);
+      else tourTimers.current.push(setTimeout(() => runTourAction(step.action), step.at * 1000));
+    }
+    void play();
+  }, [touring, stopTour, pause, runTourAction, play]);
 
   const onMode = useCallback(
     (m: 'scan' | 'explore') => {
@@ -334,11 +414,12 @@ export function App() {
       const action = resolveShortcut(keyInputFromEvent(e, document.activeElement === mapRef.current, helpOpen));
       if (!action) return;
       e.preventDefault();
+      if (tourTimers.current.length) stopTour(); // any shortcut hands control back to the user
       dispatch(action);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [dispatch, helpOpen]);
+  }, [dispatch, helpOpen, stopTour]);
 
   const stepMs = Math.round(1000 / tempo);
 
@@ -347,7 +428,7 @@ export function App() {
       <a className="skip-link" href="#player">
         Skip to the player
       </a>
-      <Marquee onHelp={() => setHelpOpen(true)} />
+      <Marquee onHelp={() => setHelpOpen(true)} onTour={toggleTour} touring={touring} />
       <main className={styles.cabinet} id="main">
         <div className={styles.records}>
           <Carousel tracks={TRACKS} selected={trackIndex} playing={playing} onSelect={changeTrack} />

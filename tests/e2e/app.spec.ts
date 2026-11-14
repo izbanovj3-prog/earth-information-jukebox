@@ -113,6 +113,24 @@ test.describe('Earth Information Jukebox', () => {
   });
 });
 
+test.describe('demo tour', () => {
+  test('starts from a button press, narrates, and any shortcut hands control back', async ({ page }) => {
+    await page.goto('/?record=vegetation');
+    await waitForFrame(page);
+    const tour = page.getByRole('button', { name: /Demo Tour/ });
+    await tour.click();
+    await expect(tour).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#now-h')).toHaveText('Fever Pitch');
+    await expect(page.getByTestId('narrator')).toContainText(/Demo tour|Playing Fever Pitch/);
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    expect((await audioStats(page)).created).toBe(1);
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press(' ');
+    await expect(tour).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+  });
+});
+
 test.describe('offline fallback', () => {
   test.use({ gibs: 'blocked' });
   test('uses bundled frames with a visible banner when GIBS is unreachable', async ({ page }) => {

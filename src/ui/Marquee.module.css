@@ -126,3 +126,9 @@
   color: var(--amber-hot);
   font-size: 0.92rem;
 }
+
+.dim {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  opacity: 0.8;
+}

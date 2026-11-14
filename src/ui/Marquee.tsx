@@ -17,7 +17,7 @@ export function Marquee({ onHelp, onTour, touring = false }: { onHelp: () => voi
       <div className={styles.actions}>
         {onTour && (
           <button type="button" className={styles.ghost} onClick={onTour} aria-pressed={touring}>
-            Demo tour
+            Demo Tour <span className={styles.dim}>90 s</span>
           </button>
         )}
         <button type="button" className={styles.ghost} onClick={onHelp} aria-keyshortcuts="?">
