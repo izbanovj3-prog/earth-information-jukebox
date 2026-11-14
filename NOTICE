@@ -1,0 +1,22 @@
+Earth Information Jukebox
+Copyright 2026 the Earth Information Jukebox team.
+
+This project is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Portions of this project come from the team's second prototype (branch
+feat/earth-jukebox-mvp), Copyright (c) 2026 NASA Space Apps Team, originally
+released under the MIT License and contributed to this project under
+Apache-2.0. Those files keep their copyright notice in a header comment:
+  src/eic/vendor/analyze.js
+  src/eic/vendor/datasets.js
+  src/eic/vendor/engine.js
+  src/eic/vendor/orchestra.js
+  src/eic/vendor/env.js (rewritten for the merged static build)
+  public/eic/baked/** (frames pre-analysed by the prototype's bake tool)
+
+Orchestral samples in public/eic/samples/ are from VS Chamber Orchestra 2:
+Community Edition by Versilian Studios, CC0-1.0 (public domain dedication).
+
+NASA imagery is not copyrighted in the United States; see ATTRIBUTION.md for
+the credit lines. This is an unofficial prototype built for the NASA Space
+Apps Challenge. Not a NASA product. NASA does not endorse this project.
