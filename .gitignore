@@ -33,3 +33,8 @@ data/processed/*
 *.h5
 *.tif
 *.zip
+
+# Test output
+test-results/
+playwright-report/
+coverage/
