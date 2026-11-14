@@ -235,6 +235,7 @@ test.describe('demo tour', () => {
     await page.goto('/?record=vegetation');
     await waitForFrame(page);
     const tour = page.getByRole('button', { name: /Demo Tour/ });
+    await expect(tour).toContainText('98s'); // label follows the tour script length
     await tour.click();
     await expect(tour).toHaveAttribute('aria-pressed', 'true');
     // The tour opens on the first Earth Information Center record.
