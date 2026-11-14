@@ -1,0 +1,200 @@
+[
+  {
+    "file": "01-nightlights-orchestra.webm",
+    "dataset": "nightlights",
+    "mode": "orchestra",
+    "title": "Night Lights 2012 → 2023",
+    "seconds": 123,
+    "frames": [
+      "2012",
+      "2013",
+      "2014",
+      "2015",
+      "2016",
+      "2017",
+      "2018",
+      "2019",
+      "2020",
+      "2021",
+      "2022",
+      "2023"
+    ]
+  },
+  {
+    "file": "01-nightlights-science.webm",
+    "dataset": "nightlights",
+    "mode": "science",
+    "title": "Night Lights 2012 → 2023",
+    "seconds": 63,
+    "frames": [
+      "2012",
+      "2013",
+      "2014",
+      "2015",
+      "2016",
+      "2017",
+      "2018",
+      "2019",
+      "2020",
+      "2021",
+      "2022",
+      "2023"
+    ]
+  },
+  {
+    "file": "02-ocean-orchestra.webm",
+    "dataset": "ocean",
+    "mode": "orchestra",
+    "title": "Sea Surface Currents & Temperature",
+    "seconds": 155,
+    "frames": [
+      "Mar 25, 2007",
+      "Apr 25, 2007",
+      "May 27, 2007",
+      "Jun 27, 2007",
+      "Jul 28, 2007",
+      "Aug 28, 2007",
+      "Sep 29, 2007",
+      "Oct 30, 2007",
+      "Nov 30, 2007",
+      "Dec 31, 2007",
+      "Feb 1, 2008",
+      "Mar 3, 2008"
+    ]
+  },
+  {
+    "file": "02-ocean-science.webm",
+    "dataset": "ocean",
+    "mode": "science",
+    "title": "Sea Surface Currents & Temperature",
+    "seconds": 63,
+    "frames": [
+      "Mar 25, 2007",
+      "Apr 25, 2007",
+      "May 27, 2007",
+      "Jun 27, 2007",
+      "Jul 28, 2007",
+      "Aug 28, 2007",
+      "Sep 29, 2007",
+      "Oct 30, 2007",
+      "Nov 30, 2007",
+      "Dec 31, 2007",
+      "Feb 1, 2008",
+      "Mar 3, 2008"
+    ]
+  },
+  {
+    "file": "03-aerosols-orchestra.webm",
+    "dataset": "aerosols",
+    "mode": "orchestra",
+    "title": "GEOS Aerosols (Aug–Sep 2024)",
+    "seconds": 112,
+    "frames": [
+      "Aug 1, 2024",
+      "Aug 5, 2024",
+      "Aug 10, 2024",
+      "Aug 15, 2024",
+      "Aug 20, 2024",
+      "Aug 25, 2024",
+      "Aug 30, 2024",
+      "Sep 4, 2024",
+      "Sep 9, 2024",
+      "Sep 14, 2024"
+    ]
+  },
+  {
+    "file": "03-aerosols-science.webm",
+    "dataset": "aerosols",
+    "mode": "science",
+    "title": "GEOS Aerosols (Aug–Sep 2024)",
+    "seconds": 53,
+    "frames": [
+      "Aug 1, 2024",
+      "Aug 5, 2024",
+      "Aug 10, 2024",
+      "Aug 15, 2024",
+      "Aug 20, 2024",
+      "Aug 25, 2024",
+      "Aug 30, 2024",
+      "Sep 4, 2024",
+      "Sep 9, 2024",
+      "Sep 14, 2024"
+    ]
+  },
+  {
+    "file": "04-lightning-orchestra.webm",
+    "dataset": "lightning",
+    "mode": "orchestra",
+    "title": "Lightning seen from the ISS (2019)",
+    "seconds": 99,
+    "frames": [
+      "January 2019",
+      "February 2019",
+      "March 2019",
+      "April 2019",
+      "May 2019",
+      "June 2019",
+      "July 2019",
+      "August 2019",
+      "September 2019",
+      "October 2019",
+      "November 2019",
+      "December 2019"
+    ]
+  },
+  {
+    "file": "04-lightning-science.webm",
+    "dataset": "lightning",
+    "mode": "science",
+    "title": "Lightning seen from the ISS (2019)",
+    "seconds": 63,
+    "frames": [
+      "January 2019",
+      "February 2019",
+      "March 2019",
+      "April 2019",
+      "May 2019",
+      "June 2019",
+      "July 2019",
+      "August 2019",
+      "September 2019",
+      "October 2019",
+      "November 2019",
+      "December 2019"
+    ]
+  },
+  {
+    "file": "05-airquality-orchestra.webm",
+    "dataset": "airquality",
+    "mode": "orchestra",
+    "title": "Air Quality: fire season 2024",
+    "seconds": 80,
+    "frames": [
+      "≈ Jul 1, 2024",
+      "≈ Jul 9, 2024",
+      "≈ Jul 18, 2024",
+      "≈ Jul 27, 2024",
+      "≈ Aug 4, 2024",
+      "≈ Aug 13, 2024",
+      "≈ Aug 22, 2024",
+      "≈ Aug 31, 2024"
+    ]
+  },
+  {
+    "file": "05-airquality-science.webm",
+    "dataset": "airquality",
+    "mode": "science",
+    "title": "Air Quality: fire season 2024",
+    "seconds": 43,
+    "frames": [
+      "≈ Jul 1, 2024",
+      "≈ Jul 9, 2024",
+      "≈ Jul 18, 2024",
+      "≈ Jul 27, 2024",
+      "≈ Aug 4, 2024",
+      "≈ Aug 13, 2024",
+      "≈ Aug 22, 2024",
+      "≈ Aug 31, 2024"
+    ]
+  }
+]

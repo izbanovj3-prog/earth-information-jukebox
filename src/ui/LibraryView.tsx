@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { Track } from '../data/catalog';
 import { PauseIcon, PlayIcon, SearchIcon } from './icons';
+import { Playlist } from './Playlist';
 
 /** An Earth Information Center (NASA SVS) record as the library lists it. */
 export interface EicLibraryRecord {
@@ -20,6 +21,8 @@ interface Props {
   onPlayTrack: (i: number) => void;
   onPauseCurrent: () => void;
   onOpenRecord: (i: number) => void;
+  /** A playlist track started: pause the live jukebox. */
+  onExternalAudio: () => void;
 }
 
 function matches(t: Track, q: string): boolean {
@@ -168,6 +171,19 @@ export function LibraryView(p: Props) {
             </div>
           );
         })}
+      </section>
+
+      <section aria-labelledby="playlist-h" className="flex flex-col gap-space-md">
+        <div className="flex flex-col gap-space-xs border-b border-surface-container-highest pb-space-sm">
+          <h2 id="playlist-h" className="font-headline-lg text-headline-lg text-on-surface m-0">
+            Curated playlist
+          </h2>
+          <p className="m-0 font-body-md text-body-md text-secondary max-w-prose">
+            Every Earth Information Center record rendered offline by the same engine, once as Orchestra and once as Scientific. Listen
+            here, or download the files to play anywhere.
+          </p>
+        </div>
+        <Playlist onPlay={p.onExternalAudio} headingId="playlist-h" />
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-space-sm font-label-sm text-label-sm text-secondary uppercase">

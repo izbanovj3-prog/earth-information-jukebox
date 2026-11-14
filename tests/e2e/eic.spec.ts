@@ -134,6 +134,47 @@ test.describe('Earth Information Center records', () => {
     await expectNoSeriousA11yViolations(page, 'EIC how-to-listen sheet');
   });
 
+  test('playlist: this record in both modes, playing a track pauses the jukebox; the library lists all ten', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    await page.goto('/');
+    await waitForFrame(page);
+    const take = page.getByRole('region', { name: 'Take it with you' }).or(page.locator('section[aria-labelledby="eic-take-h"]'));
+    const audios = take.locator('audio');
+    await expect(audios).toHaveCount(2);
+    const srcs = await audios.evaluateAll((els) => els.map((e) => (e as HTMLAudioElement).getAttribute('src')));
+    expect(srcs.sort()).toEqual(['./eic/playlist/01-nightlights-orchestra.webm', './eic/playlist/01-nightlights-science.webm']);
+    await page.getByRole('button', { name: 'Play' }).click();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+    // Start the orchestra track (muted for the test): the live jukebox pauses instead of overlapping.
+    const t = await audios.first().evaluate(async (a: HTMLAudioElement) => {
+      a.muted = true;
+      await a.play();
+      await new Promise((r) => setTimeout(r, 1200));
+      return a.currentTime;
+    });
+    expect(t).toBeGreaterThan(0.3);
+    await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+    expect(errors.filter((e) => /Content Security Policy|media/i.test(e))).toEqual([]);
+
+    await page.getByRole('button', { name: 'Browse all records →' }).click();
+    await expect(page.locator('section[aria-labelledby="playlist-h"] audio')).toHaveCount(10);
+    await expectNoSeriousA11yViolations(page, 'library with playlist');
+  });
+
+  test('Export WAV renders the current record offline and offers a download', async ({ page }) => {
+    test.slow();
+    await page.goto('/?record=eic-airquality');
+    await waitForFrame(page);
+    await page.getByRole('radio', { name: 'Scientific' }).check({ force: true });
+    await page.getByRole('button', { name: 'Export WAV' }).click();
+    await expect(page.getByTestId('wav-status')).toContainText('Rendering');
+    const link = page.getByRole('link', { name: /Download earth-jukebox-airquality-science\.wav/ });
+    await expect(link).toBeVisible({ timeout: 80_000 });
+    const download = await Promise.all([page.waitForEvent('download'), link.click()]).then(([d]) => d);
+    expect(download.suggestedFilename()).toBe('earth-jukebox-airquality-science.wav');
+  });
+
   test('every EIC record loads and is axe-clean', async ({ page }) => {
     for (const ds of EIC) {
       await page.goto(`/?record=eic-${ds.id}`);

@@ -11,7 +11,7 @@
 import { instrumentsFor } from './instruments';
 import { COLS, ROWS, fmtLat, fmtLon, latOfRow, loadDataset as vendorLoadDataset, lonOfCol, regionName, channelsOf, type EicFrame, type EicFrames } from './vendor/analyze';
 import { byId, DATASETS, type EicDataset } from './vendor/datasets';
-import { attachSamples, composerFor, describeAt, Engine, Player, probeCell, setMode, setSweep } from './vendor/engine';
+import { attachSamples, composerFor, describeAt, encodeWav, Engine, Player, probeCell, renderOffline, setMode, setSweep } from './vendor/engine';
 import { loadManifest, loadSamples as vendorLoadSamples, orchestraFor, sweepForBpm, type SampleBank, type SampleManifest } from './vendor/orchestra';
 
 export type SoundMode = 'science' | 'orchestra';
@@ -488,6 +488,16 @@ export class EicSession {
   async suspend(): Promise<void> {
     this.pause();
     if (this.ctx?.state === 'running') await this.ctx.suspend();
+  }
+
+  /** Render the whole record offline, in the mode that is sounding now, as a 16-bit stereo WAV. */
+  async renderWav(): Promise<{ blob: Blob; seconds: number; mode: SoundMode; file: string }> {
+    if (!this.frames) throw new Error('the frames are still loading');
+    const ds = this.dataset;
+    const mode: SoundMode = this.state.activeMode === 'orchestra' && this.orchestraReadyFor(ds.id) ? 'orchestra' : 'science';
+    const sweep = mode === 'orchestra' ? sweepForBpm(orchestraFor(ds.id).bpm) : SCIENCE_SWEEP;
+    const buf = await renderOffline(ds, this.frames, { sweep, mode, samples: mode === 'orchestra' ? this.bank : null, muted: [] });
+    return { blob: encodeWav(buf), seconds: buf.duration, mode, file: `earth-jukebox-${ds.id}-${mode}.wav` };
   }
 
   get audioStarted(): boolean {

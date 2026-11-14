@@ -525,6 +525,12 @@ export function App() {
     [changeTrack, play],
   );
 
+  /** A playlist track started: pause whatever the live jukebox is playing. */
+  const pauseForPlaylist = useCallback(() => {
+    if (eic.getState().playing) eic.pause();
+    if (live.current.playing) void pause('Paused while the playlist track plays.');
+  }, [eic, pause]);
+
   // ----- EIC transport, explore and time -----
   const eicToggle = useCallback(async () => {
     try {
@@ -711,6 +717,7 @@ export function App() {
           current={eicId ? -1 : trackIndex}
           playing={playing}
           onPlayTrack={playTrackFromLibrary}
+          onExternalAudio={pauseForPlaylist}
           onPauseCurrent={() => (eicId ? (eic.pause(), urgent('Paused.')) : void pause())}
           onOpenRecord={openRecord}
         />
@@ -749,6 +756,7 @@ export function App() {
           narration={narration}
           onNarration={setNarration}
           onOpenHelp={() => setHelpOpen(true)}
+          onExternalAudio={pauseForPlaylist}
         />
       ) : (
         <PlayerView
