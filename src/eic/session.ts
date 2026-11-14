@@ -408,6 +408,8 @@ export class EicSession {
     if (!this.frames) return;
     const n = this.frames.length;
     const j = ((i % n) + n) % n;
+    // Drop UI updates queued for the old position, or they would snap the frame back.
+    this.clearTimers();
     this.set({ frameIndex: j });
     if (this.player?.playing) this.player.start(j * COLS);
     else this.resumeAt = j * COLS;
@@ -548,6 +550,11 @@ export class EicSession {
     const a = E.activity;
     E.activity = {};
     return a;
+  }
+
+  /** Create/resume the AudioContext inside a user gesture without playing (demo tour). */
+  unlockAudio(): void {
+    this.ensureAudio();
   }
 
   get audioStarted(): boolean {

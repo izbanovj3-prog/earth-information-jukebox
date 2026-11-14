@@ -237,10 +237,12 @@ test.describe('demo tour', () => {
     const tour = page.getByRole('button', { name: /Demo Tour/ });
     await tour.click();
     await expect(tour).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#now-h')).toHaveText('Fever Pitch');
-    await expect(page.getByTestId('narrator')).toContainText(/Demo tour|Playing Fever Pitch/);
-    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-    expect((await audioStats(page)).created).toBe(1);
+    // The tour opens on the first Earth Information Center record.
+    await expect(page).toHaveURL(/record=eic-nightlights/);
+    await expect(page.getByTestId('narrator')).toContainText(/Demo tour|Playing Night Lights/);
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible({ timeout: 10_000 });
+    // Both engines were unlocked inside the click (EIC now, GIBS for later steps).
+    expect((await audioStats(page)).created).toBe(2);
     await page.locator('body').click({ position: { x: 5, y: 5 } });
     await page.keyboard.press(' ');
     await expect(tour).toHaveAttribute('aria-pressed', 'false');
@@ -252,23 +254,31 @@ test.describe('demo tour script', () => {
   test('visits each scripted step on time and ends', async ({ page }) => {
     test.setTimeout(60_000);
     await page.clock.install();
-    await page.goto(GIBS_HOME);
+    await page.goto('/');
     await waitForFrame(page);
     await page.getByRole('button', { name: /Demo Tour/ }).click();
     // Freeze page time so only fastForward() moves the tour (assertions take real time).
     await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50);
-    await page.clock.fastForward(14_500);
+    await expect(page).toHaveURL(/record=eic-nightlights&date=2012-07-01/);
+    await page.clock.fastForward(12_500);
+    await expect(page).toHaveURL(/record=eic-nightlights&date=2023-07-01/);
+    await page.clock.fastForward(10_000); // 22.5 s
+    await expect(page).toHaveURL(/record=eic-lightning&date=2019-07-15/);
+    await page.clock.fastForward(12_000); // 34.5 s
+    await expect(page.locator('#now-h')).toHaveText('Fever Pitch');
+    await waitForFrame(page);
+    await page.clock.fastForward(12_000); // 46.5 s
     await expect(page).toHaveURL(/record=air-temperature&date=2024-07-01/);
-    await page.clock.fastForward(14_000); // 28.5 s
+    await page.clock.fastForward(10_000); // 56.5 s
     await expect(page.locator('#now-h')).toHaveText('Thin Ice');
     await expect(page).toHaveURL(/date=2012-09-15/);
     await waitForFrame(page);
-    await page.clock.fastForward(12_000); // 40.5 s
+    await page.clock.fastForward(8_000); // 64.5 s
     await expect(page.getByRole('radio', { name: 'Explore' })).toBeChecked();
     await expect(page.locator('[class*=readout]')).toContainText('82°N 150°W');
-    await page.clock.fastForward(12_000); // 52.5 s
+    await page.clock.fastForward(10_000); // 74.5 s
     await expect(page.locator('#now-h')).toHaveText('Green Pulse');
-    await page.clock.fastForward(38_000); // 90.5 s
+    await page.clock.fastForward(24_000); // 98.5 s
     await expect(page.getByRole('button', { name: /Demo Tour/ })).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByTestId('narrator')).toContainText('Demo tour finished.');
   });

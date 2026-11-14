@@ -18,7 +18,7 @@ import { PlayerView } from './PlayerView';
 import type { NarrationMode } from './Transport';
 import { TOUR, type TourAction } from './tour';
 import { useTrackFrames } from './useTrackFrames';
-import { EIC_COLS, EIC_DATASETS, EIC_ROWS, EicSession, type NarrationKind } from '../eic/session';
+import { EIC_COLS, EIC_DATASETS, EIC_ROWS, EicSession, nearestFrame, type NarrationKind } from '../eic/session';
 import { EicPlayerView, type EicCursor } from './EicPlayerView';
 import type { EicRecord } from './TrackRail';
 
@@ -312,11 +312,12 @@ export function App() {
     async (reason?: string) => {
       // Any pause ends the demo tour, so no later timer can resume audio without a gesture.
       stopTour();
+      eic.pause();
       await player.pause();
       setPlaying(false);
       urgent(reason ?? 'Paused.');
     },
-    [player, urgent, stopTour],
+    [player, urgent, stopTour, eic],
   );
 
   const togglePlay = useCallback(() => {
@@ -356,6 +357,7 @@ export function App() {
       const n = TRACKS.length;
       if (eicLive.current.eicId) {
         eic.pause();
+        eicLive.current = { ...eicLive.current, eicId: null };
         setEicId(null);
       }
       setTrackIndex(((i % n) + n) % n);
@@ -375,6 +377,8 @@ export function App() {
         setPlaying(false);
       }
       setEicExploring(false);
+      // Update the live ref now: a demo-tour step in the same tick must see the new record.
+      eicLive.current = { ...eicLive.current, eicId: id };
       setEicId(id);
       setView('player');
       const ds = EIC_DATASETS.find((d) => d.id === id);
@@ -403,7 +407,8 @@ export function App() {
       const ti = TRACKS.findIndex((t) => t.id === trackId);
       if (ti < 0) return;
       const fi = Math.max(0, TRACKS[ti]!.dates.indexOf(date));
-      if (TRACKS[ti]!.id === live.current.track.id) {
+      // From an EIC record, always switch collections (the hidden GIBS player may already be on this record).
+      if (TRACKS[ti]!.id === live.current.track.id && !eicLive.current.eicId) {
         player.seekFrame(fi);
         setFrameIndex(fi);
         setScan(0);
@@ -453,7 +458,18 @@ export function App() {
       switch (a.type) {
         case 'goto':
           return goTo(a.track, a.date);
+        case 'eic': {
+          const frames = eic.loadedFrames;
+          if (eicLive.current.eicId === a.record && frames && eic.getState().dsId === a.record) return eic.seekFrame(nearestFrame(frames, a.date));
+          eicFirstFrame.current = a.date;
+          return selectEic(a.record);
+        }
         case 'play':
+          if (eicLive.current.eicId) {
+            if (eic.getState().status === 'ready' && eic.getState().dsId === eicLive.current.eicId) return void eic.play();
+            eicPlayWhenLoaded.current = true;
+            return;
+          }
           return void play();
         case 'tempo':
           return setTempo(a.value);
@@ -472,7 +488,7 @@ export function App() {
           return void pause('Demo tour finished.');
       }
     },
-    [goTo, play, urgent, probeAt, stopTour, pause, player],
+    [goTo, play, urgent, probeAt, stopTour, pause, player, eic, selectEic],
   );
 
   const toggleTour = useCallback(() => {
@@ -482,19 +498,19 @@ export function App() {
       return;
     }
     setView('player');
-    if (eicLive.current.eicId) {
-      eic.pause();
-      setEicId(null);
-    }
     setTouring(true);
+    // Later steps run from timers: unlock both audio engines inside this click.
+    eic.unlockAudio();
+    void player.engine.start().then(() => {
+      if (!live.current.playing) void player.engine.stop();
+    });
     if (live.current.narration === 'off') setNarration('changes');
     // The first steps run synchronously inside the click, so audio starts within the user gesture.
     for (const step of TOUR) {
       if (step.at === 0) runTourAction(step.action);
       else tourTimers.current.push(setTimeout(() => runTourAction(step.action), step.at * 1000));
     }
-    void play();
-  }, [touring, stopTour, pause, runTourAction, play, eic]);
+  }, [touring, stopTour, pause, runTourAction, eic, player]);
 
   const onMode = useCallback(
     (m: 'scan' | 'explore') => {
