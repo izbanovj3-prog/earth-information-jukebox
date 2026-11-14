@@ -15,7 +15,7 @@ test.describe('Earth Information Jukebox', () => {
     await page.goto(GIBS_HOME);
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Jukebox');
     // The same disclaimer also appears (hidden) inside the closed how-to-listen dialog; the footer is the always-visible copy.
-    await expect(page.getByRole('contentinfo').getByText('Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product.')).toBeVisible();
+    await expect(page.getByRole('contentinfo').getByText('Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product.')).toBeVisible();
     await expect(page.getByRole('radio')).toHaveCount(EIC_COUNT + TRACKS.length + 2); // EIC + GIBS records + scan/explore
     await waitForFrame(page);
     await expect(page.getByText('Live · NASA GIBS')).toBeVisible();

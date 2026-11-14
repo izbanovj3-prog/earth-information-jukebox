@@ -142,7 +142,7 @@ Full comparison, measurements and the approved decisions are in `MERGE_PLAN.md`.
 - >= 4 verified real-data tracks with provenance.
 - Live sonification synced to the displayed frame (scan line visible, pan follows).
 - Keyboard-only + screen-reader flow; axe: zero serious/critical; contrast >= 4.5:1.
-- Disclaimer visible: "Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product." No NASA logos.
+- Disclaimer visible: "Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product." No NASA logos.
 - Every resource cited in-app and in ATTRIBUTION.md.
 - README, ATTRIBUTION, LICENSE (Apache-2.0), DEMO, CONTEXT up to date.
 

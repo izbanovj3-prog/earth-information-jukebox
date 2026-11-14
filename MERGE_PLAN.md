@@ -151,7 +151,7 @@ Why A and not B:
 | Code (`webm.js`, `tiff.js`, `png.js`, server) | Original teammate code ("no dependencies"), MIT. | Keep the MIT notice for these files, or relicense (D1). |
 
 **Submission "References" field (draft):**
-NASA GIBS (ESDIS) and its 5 layer IDs (already in ATTRIBUTION.md) · NASA SVS 5313, 5276, 3912, 5552, 5011, 5533 · NASA Earth Information Center gallery (svs.gsfc.nasa.gov/gallery/earth-information-center/) · Black Marble VIIRS, ECCO2, GTOPO30, GEOS-FP, GEOS-CF, ISS LIS (GHRC DAAC), CPC Cloud Composite, MCD12C1, Natural Earth · OpenStreetMap coastlines (ODbL, via GIBS) · VSCO-2-CE (CC0) · Fontsource fonts (OFL-1.1) · React, Vite, Tailwind (MIT) · SVS 13786 (Caldwell 73 sonification, inspiration) · Disclaimer: "Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product."
+NASA GIBS (ESDIS) and its 5 layer IDs (already in ATTRIBUTION.md) · NASA SVS 5313, 5276, 3912, 5552, 5011, 5533 · NASA Earth Information Center gallery (svs.gsfc.nasa.gov/gallery/earth-information-center/) · Black Marble VIIRS, ECCO2, GTOPO30, GEOS-FP, GEOS-CF, ISS LIS (GHRC DAAC), CPC Cloud Composite, MCD12C1, Natural Earth · OpenStreetMap coastlines (ODbL, via GIBS) · VSCO-2-CE (CC0) · Fontsource fonts (OFL-1.1) · React, Vite, Tailwind (MIT) · SVS 13786 (Caldwell 73 sonification, inspiration) · Disclaimer: "Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product."
 
 ---
 

@@ -103,4 +103,4 @@ Build and test tools (not shipped; Tailwind compiles to a plain CSS file at buil
 
 ## Disclaimer
 
-Unofficial prototype built for NASA Space Apps Challenge. Not a NASA product. NASA does not endorse this project. The app uses no NASA logos or insignia.
+Unofficial prototype for NASA Space Apps Challenge 2026. Not a NASA product. NASA does not endorse this project. The app uses no NASA logos or insignia.
