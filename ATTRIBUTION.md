@@ -64,6 +64,19 @@ The app contains no third-party images or icons besides the NASA GIBS and SVS im
 
 Five AI-generated Stitch screens in `design/reference/` (Console Deck, Main Player, Mobile Telemetry Player, Track Library, How to Listen side sheet) were used as an untrusted layout/token/copy reference for the 2026-11-14 redesign — read, never executed, never copied verbatim into `src/`. Their embedded Tailwind config (colors, spacing, radii, type scale) is carried into `src/ui/theme.css`; see `.stitch/DESIGN.md`.
 
+## Tools
+
+| Tool | Maker | Use |
+|---|---|---|
+| Claude Code | Anthropic | Wrote the application code, tests and deployment setup |
+| Claude | Anthropic | Research, planning, and drafting the documentation and submission text |
+| Google Stitch | Google | Drafted the reference screen designs in `design/reference/` (see `.stitch/DESIGN.md`); not part of the app |
+| Vitest | Vitest team | Unit tests (see Software below) |
+| Playwright | Microsoft | End-to-end tests (see Software below) |
+| axe-core | Deque Systems | Accessibility checks in the e2e suite (see Software below) |
+
+ECCO2, the ocean model behind the Sea Surface Currents and Temperature record (SVS 3912), is credited in the EIC table above.
+
 ## Software
 
 Runtime (shipped to the browser; React, React DOM and Scheduler are © Facebook, Inc. and its affiliates):

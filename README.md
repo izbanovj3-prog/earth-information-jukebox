@@ -148,6 +148,10 @@ The three sides talk through one contract in `src/types.ts`: a `Frame` (RGBA pix
 - EIC records are pre-analysed copies of SVS frames (no live SVS fetch in the static app, because SVS allows cross-origin pixel reads for one partner site only). The prototype's live-video mode needs its local Node server and is not part of the static app (branch `feat/earth-jukebox-mvp`).
 - On a slow phone network the orchestra for a record takes a while to arrive (Night Lights: about 37 s on throttled Fast 3G); Scientific plays meanwhile.
 
+## Use of Super Intelligence (SI)
+
+This project was built with AI assistance. The application code, tests and deployment setup were written with Claude Code (Anthropic). The screen designs were drafted with Google Stitch (see design/reference and .stitch). Claude (Anthropic) also helped with research, planning and drafting the documentation and the submission text. The team set the goals and design decisions, reviewed the results, and ran and tested the app. The app itself contains no AI-generated images, video or audio: all sound is produced by the app's own code from NASA data and CC0 orchestra samples. The only AI-generated images in the repository are the Stitch reference screenshots in design/reference, which are not part of the app. Nothing here uses NASA logos, flags or mission identifiers.
+
 ## Credits and license
 
 Data comes from NASA SVS and NASA GIBS; orchestral samples are VS Chamber Orchestra 2 Community Edition (CC0). [`ATTRIBUTION.md`](ATTRIBUTION.md) lists every dataset, credit line, font and library, and [`NOTICE`](NOTICE) the files that came from the teammate prototype. Code is under the [Apache License 2.0](LICENSE). The app uses no NASA logos or insignia.
